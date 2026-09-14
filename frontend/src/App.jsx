@@ -1,0 +1,178 @@
+import React from 'react'
+import { BellOutlined, DownOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons'
+import { Alert, Avatar, Button, Card, Checkbox, Divider, Dropdown, Form, Input, Layout, Menu, Space, Spin, Tag, Typography } from 'antd'
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import api, { apiMessage } from './api'
+import { AuthProvider, useAuth } from './auth'
+
+const { Content, Header, Sider } = Layout
+const { Title, Text, Paragraph, Link } = Typography
+
+const navItems = [
+  { key: '/overview', label: 'Overview' },
+  { key: '/records', label: 'Health Records' },
+  { key: '/insights', label: 'Health Insights' },
+  { key: '/sharing', label: 'Sharing & Privacy' },
+  { key: '/services', label: 'Care Services' },
+  { key: '/community', label: 'Community' },
+]
+
+const plannedPages = {
+  '/records': ['Health Records', 'Search, review and manage your personal health records.'],
+  '/insights': ['Health Insights', 'Understand changes in your readings and review health reports.'],
+  '/sharing': ['Sharing & Privacy', 'Control who can access selected records and review access activity.'],
+  '/services': ['Care Services', 'Explore medical appointments and elderly care services.'],
+  '/community': ['Community', 'A private, optional space for peer support and shared experiences.'],
+  '/account': ['Account & Security', 'Manage your profile and sign-in methods.'],
+  '/notifications': ['Notifications', 'Review health, appointment, sharing and security updates.'],
+}
+
+function Brand() {
+  return <div className="brand"><span className="brand-mark">PH</span><strong>Personal Health</strong></div>
+}
+
+function AuthLayout({ children }) {
+  return <main className="login-page">
+    <section className="login-intro"><div className="intro-content"><Brand /><h1>Your health,<br />in one place.</h1><p>Manage your records, understand your health, and control what you share.</p></div></section>
+    <section className="login-form-wrap"><div className="login-form-card">{children}</div></section>
+  </main>
+}
+
+function LoginPage() {
+  const navigate = useNavigate()
+  const { login, user } = useAuth()
+  const [error, setError] = React.useState('')
+  const [submitting, setSubmitting] = React.useState(false)
+  if (user) return <Navigate to="/overview" replace />
+
+  async function submit(values) {
+    setSubmitting(true)
+    setError('')
+    try {
+      await login(values)
+      navigate('/overview', { replace: true })
+    } catch (requestError) {
+      setError(apiMessage(requestError))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return <AuthLayout>
+    <Title level={2}>Welcome back</Title><Paragraph>Sign in to access your personal health records.</Paragraph>
+    {error && <Alert className="form-alert" type="error" showIcon message={error} />}
+    <Form layout="vertical" onFinish={submit} initialValues={{ remember: true }}>
+      <Form.Item label="Email address" name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email address' }]}><Input autoComplete="email" placeholder="Enter your email address" /></Form.Item>
+      <Form.Item label="Password" name="password" rules={[{ required: true, message: 'Enter your password' }]}><Input.Password autoComplete="current-password" placeholder="Enter your password" /></Form.Item>
+      <div className="login-options"><Form.Item name="remember" valuePropName="checked" noStyle><Checkbox>Keep me signed in</Checkbox></Form.Item><Link onClick={() => navigate('/forgot-password')}>Forgot password?</Link></div>
+      <Button type="primary" htmlType="submit" block loading={submitting}>Sign In</Button>
+    </Form>
+    <div className="alternative-login"><Text type="secondary">Other sign-in methods</Text><Button disabled>SMS Code</Button><Button disabled>Face Verification</Button></div>
+    <Divider /><div className="auth-switch"><Text>New to Personal Health?</Text><Button type="link" onClick={() => navigate('/register')}>Create account</Button></div>
+  </AuthLayout>
+}
+
+function RegisterPage() {
+  const navigate = useNavigate()
+  const { register, user } = useAuth()
+  const [error, setError] = React.useState('')
+  const [submitting, setSubmitting] = React.useState(false)
+  if (user) return <Navigate to="/overview" replace />
+
+  async function submit(values) {
+    setSubmitting(true)
+    setError('')
+    try {
+      await register(values)
+      navigate('/overview', { replace: true })
+    } catch (requestError) {
+      setError(apiMessage(requestError))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return <AuthLayout>
+    <Title level={2}>Create your account</Title><Paragraph>Set up a private space for your personal health information.</Paragraph>
+    {error && <Alert className="form-alert" type="error" showIcon message={error} />}
+    <Form layout="vertical" onFinish={submit}>
+      <Form.Item label="Full name" name="full_name" rules={[{ required: true, min: 2, message: 'Enter your full name' }]}><Input autoComplete="name" /></Form.Item>
+      <Form.Item label="Email address" name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email address' }]}><Input autoComplete="email" /></Form.Item>
+      <Form.Item label="Password" name="password" extra="Use at least 8 characters with a letter and a number." rules={[{ required: true, min: 8, message: 'Use at least 8 characters' }]}><Input.Password autoComplete="new-password" /></Form.Item>
+      <Button type="primary" htmlType="submit" block loading={submitting}>Create Account</Button>
+    </Form>
+    <div className="auth-switch"><Text>Already have an account?</Text><Button type="link" onClick={() => navigate('/login')}>Sign in</Button></div>
+  </AuthLayout>
+}
+
+function ForgotPasswordPage() {
+  const navigate = useNavigate()
+  const [email, setEmail] = React.useState('')
+  const [stage, setStage] = React.useState('request')
+  const [demoCode, setDemoCode] = React.useState('')
+  const [notice, setNotice] = React.useState(null)
+  const [submitting, setSubmitting] = React.useState(false)
+
+  async function requestCode(values) {
+    setSubmitting(true); setNotice(null)
+    try {
+      const response = await api.post('/auth/password-reset/request', values)
+      setEmail(values.email); setDemoCode(response.data.demo_code || ''); setStage('confirm')
+    } catch (requestError) {
+      setNotice({ type: 'error', text: apiMessage(requestError) })
+    } finally { setSubmitting(false) }
+  }
+
+  async function resetPassword(values) {
+    setSubmitting(true); setNotice(null)
+    try {
+      await api.post('/auth/password-reset/confirm', { email, code: values.code, password: values.password })
+      setStage('complete')
+    } catch (requestError) {
+      setNotice({ type: 'error', text: apiMessage(requestError) })
+    } finally { setSubmitting(false) }
+  }
+
+  return <AuthLayout>
+    {stage === 'request' && <><Title level={2}>Reset your password</Title><Paragraph>Enter the email address linked to your account.</Paragraph>{notice && <Alert className="form-alert" type={notice.type} showIcon message={notice.text} />}<Form layout="vertical" onFinish={requestCode}><Form.Item label="Email address" name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email address' }]}><Input autoComplete="email" /></Form.Item><Button type="primary" htmlType="submit" block loading={submitting}>Send Reset Code</Button></Form></>}
+    {stage === 'confirm' && <><Title level={2}>Enter your reset code</Title><Paragraph>We prepared a six-digit code for <b>{email}</b>.</Paragraph>{demoCode && <Alert className="form-alert" type="info" showIcon message={`Development reset code: ${demoCode}`} description="This will be delivered by email or SMS when that service is connected." />}{notice && <Alert className="form-alert" type={notice.type} showIcon message={notice.text} />}<Form layout="vertical" onFinish={resetPassword} initialValues={{ code: demoCode }}><Form.Item label="Reset code" name="code" rules={[{ required: true, len: 6, message: 'Enter the six-digit code' }]}><Input inputMode="numeric" maxLength={6} /></Form.Item><Form.Item label="New password" name="password" extra="Use at least 8 characters with a letter and a number." rules={[{ required: true, min: 8, message: 'Use at least 8 characters' }]}><Input.Password autoComplete="new-password" /></Form.Item><Button type="primary" htmlType="submit" block loading={submitting}>Reset Password</Button></Form></>}
+    {stage === 'complete' && <><Alert className="form-alert" type="success" showIcon message="Password reset complete" description="You can now sign in with your new password." /><Button type="primary" block onClick={() => navigate('/login')}>Return to Sign In</Button></>}
+    {stage !== 'complete' && <Button className="back-link" type="link" onClick={() => navigate('/login')}>← Back to sign in</Button>}
+  </AuthLayout>
+}
+
+function ProtectedRoute() {
+  const { loading, user } = useAuth()
+  if (loading) return <div className="route-loading"><Spin indicator={<LoadingOutlined spin />} size="large" /><Text>Loading your account…</Text></div>
+  return user ? <Outlet /> : <Navigate to="/login" replace />
+}
+
+function AppShell() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user, logout } = useAuth()
+  const pageTitle = navItems.find((item) => item.key === location.pathname)?.label || plannedPages[location.pathname]?.[0] || 'Overview'
+  async function signOut() { await logout(); navigate('/login', { replace: true }) }
+  const accountMenu = { items: [{ key: 'account', label: 'Account & Security', onClick: () => navigate('/account') }, { type: 'divider' }, { key: 'logout', label: 'Sign out', danger: true, onClick: signOut }] }
+
+  return <Layout className="app-shell"><Sider width={260} theme="light" className="app-sider"><Brand /><Menu mode="inline" selectedKeys={[location.pathname]} items={navItems} onClick={({ key }) => navigate(key)} /></Sider><Layout><Header className="app-header"><Text>{pageTitle}</Text><Space size="large"><Button aria-label="Open notifications" type="text" shape="circle" icon={<BellOutlined />} onClick={() => navigate('/notifications')} /><Dropdown menu={accountMenu} trigger={['click']}><button className="profile-button"><Avatar>{user.initials}</Avatar><span>{user.full_name}</span><DownOutlined /></button></Dropdown></Space></Header><Content className="app-content"><Outlet /></Content></Layout></Layout>
+}
+
+const readings = [['Blood Pressure', '120/80', 'mmHg', '11 Sep 2026, 08:30'], ['Blood Glucose · Fasting', '5.4', 'mmol/L', '13 Sep 2026, 07:15'], ['Heart Rate', '72', 'bpm', '13 Sep 2026, 08:35']]
+
+function OverviewPage() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const firstName = user.full_name.split(' ')[0]
+  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records')}>Add Record</Button></div><div className="warning-banner"><b>A sharing permission expires soon</b><span>Dr. Emily Chen’s access to 3 selected records expires on 14 Sep 2026. Review it in Sharing & Privacy.</span></div><section><Title level={3}>Latest Readings</Title><div className="reading-grid">{readings.map(([name, value, unit, date]) => <Card key={name} className="reading-card"><Text strong>{name}</Text><div className="reading-value">{value} <small>{unit}</small></div><Text type="secondary">Recorded on {date}</Text><Text type="secondary">Source: Manual entry</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid"><Card><Tag>Lab Report</Tag><Title level={4}>Annual Blood Test</Title><Text type="secondary">Record date: 11 Sep 2026</Text></Card><Card><Tag>Visit Summary</Tag><Title level={4}>Follow-up Consultation</Title><Text type="secondary">Record date: 8 Sep 2026</Text></Card></div></section></div>
+}
+
+function PlannedPage() {
+  const { pathname } = useLocation()
+  const [title, description] = plannedPages[pathname] || ['Page not found', '']
+  return <div className="page-stack"><Title level={1}>{title}</Title><Paragraph>{description}</Paragraph><Card className="planned-card"><Tag color="gold">In development</Tag><Title level={3}>This module is being implemented</Title><Paragraph>The route and application structure are ready. Its Figma screen will be implemented with the corresponding API and database functions.</Paragraph></Card></div>
+}
+
+export default function App() {
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+}

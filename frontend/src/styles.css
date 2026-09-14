@@ -1,0 +1,68 @@
+:root {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #182847;
+  background: #f7f8fa;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input { font: inherit; }
+
+.brand { display: flex; align-items: center; gap: 12px; color: #172440; }
+.brand-mark { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #397f78; color: #fff; font-size: 14px; }
+
+.login-page { min-height: 100vh; display: grid; grid-template-columns: 44% 56%; background: #fff; }
+.login-intro { background: #e5f2f0; display: flex; align-items: center; padding: 64px 11%; }
+.intro-content { max-width: 440px; }
+.intro-content h1 { margin: 70px 0 22px; font-size: clamp(44px, 4vw, 64px); line-height: 1.16; letter-spacing: -1.5px; }
+.intro-content p { color: #667085; font-size: 18px; line-height: 1.6; }
+.login-form-wrap { display: grid; place-items: center; padding: 56px; }
+.login-form-card { width: min(100%, 440px); }
+.login-form-card h2.ant-typography { margin-bottom: 4px; font-size: 32px; }
+.login-form-card .ant-form { margin-top: 28px; }
+.form-alert { margin: 20px 0; }
+.login-options { display: flex; justify-content: space-between; align-items: center; margin: -6px 0 20px; }
+.alternative-login { margin-top: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.auth-switch { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.back-link { margin-top: 18px; padding-inline: 0; }
+.route-loading { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 14px; background: #fff; }
+
+.app-shell { min-height: 100vh; background: #fff; }
+.app-sider { border-right: 1px solid #edf0f3; padding: 26px 18px; }
+.app-sider .brand { margin-bottom: 38px; }
+.app-sider .ant-menu { border-inline-end: 0 !important; }
+.app-sider .ant-menu-item { height: 48px; line-height: 48px; margin-block: 6px; }
+.app-header { height: 72px; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #edf0f3; }
+.profile-button { border: 0; background: transparent; display: flex; align-items: center; gap: 10px; color: #172440; cursor: pointer; }
+.app-content { background: #fff; padding: 42px 48px 72px; overflow: auto; }
+.page-stack { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+.page-heading, .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.page-heading h1.ant-typography { margin: 0 0 8px; font-size: 38px; }
+.warning-banner { display: grid; gap: 6px; padding: 18px 20px; border-radius: 8px; background: #fff7d8; color: #5d4a15; }
+.reading-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.reading-card .ant-card-body { min-height: 250px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.reading-card .ant-btn { margin-top: auto; padding-inline: 0; }
+.reading-value { font-size: 38px; font-weight: 650; color: #182847; }
+.reading-value small { font-size: 15px; font-weight: 400; color: #667085; }
+.record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.planned-card { border-style: dashed; min-height: 260px; display: grid; place-items: center; text-align: center; }
+.planned-card .ant-card-body { max-width: 520px; }
+
+@media (max-width: 900px) {
+  .login-page { grid-template-columns: 1fr; }
+  .login-intro { min-height: 300px; padding: 42px 8%; }
+  .intro-content h1 { margin-top: 45px; }
+  .app-sider { display: none; }
+  .reading-grid { grid-template-columns: 1fr; }
+  .record-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .login-form-wrap { padding: 38px 24px; }
+  .app-header { padding: 0 18px; }
+  .app-content { padding: 28px 20px 50px; }
+  .profile-button span { display: none; }
+  .page-heading { flex-direction: column; }
+  .login-options { align-items: flex-start; gap: 10px; flex-direction: column; }
+}
