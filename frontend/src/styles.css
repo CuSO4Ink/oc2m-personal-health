@@ -7,7 +7,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 
 .brand { display: flex; align-items: center; gap: 12px; color: #172440; }
 .brand-mark { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #397f78; color: #fff; font-size: 14px; }
@@ -49,6 +49,30 @@ button, input { font: inherit; }
 .planned-card { border-style: dashed; min-height: 260px; display: grid; place-items: center; text-align: center; }
 .planned-card .ant-card-body { max-width: 520px; }
 
+.records-page { gap: 22px; }
+.filter-card .ant-card-body { padding: 18px; }
+.filter-grid { display: grid; grid-template-columns: minmax(260px, 2fr) minmax(160px, 1fr) minmax(160px, 1fr) minmax(240px, 1.4fr) auto; gap: 12px; align-items: center; }
+.results-heading { display: flex; justify-content: space-between; align-items: center; }
+.records-list { border: 1px solid #e8ebef; border-radius: 10px; overflow: hidden; background: #fff; }
+.records-list .ant-list-item { padding: 22px 24px; cursor: pointer; transition: background .2s ease; }
+.records-list .ant-list-item:hover { background: #f6fbfa; }
+.record-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: #e6f3f1; color: #397f78; font-size: 20px; }
+.record-list-details { margin-top: 7px; display: flex; gap: 8px 22px; flex-wrap: wrap; color: #667085; }
+.inline-back { justify-self: start; padding-inline: 0; margin-bottom: -12px; }
+.form-page { max-width: 920px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
+.span-two { grid-column: 1 / -1; }
+.full-width { width: 100%; }
+.form-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; }
+.record-detail-page .page-heading h1.ant-typography { margin-top: 14px; }
+.record-content { white-space: pre-wrap; font-size: 16px; line-height: 1.8; margin-bottom: 0 !important; }
+.future-card .ant-card-body { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; background: #fafbfc; }
+.future-card p { margin: 7px 0 0; }
+.version-item { display: grid; gap: 8px; padding-bottom: 14px; }
+.version-item details { margin-top: 7px; padding: 12px 14px; border-radius: 7px; background: #f7f8fa; }
+.version-item summary { cursor: pointer; color: #397f78; font-weight: 600; }
+.version-item .ant-descriptions { margin-top: 14px; }
+
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
   .login-intro { min-height: 300px; padding: 42px 8%; }
@@ -56,6 +80,8 @@ button, input { font: inherit; }
   .app-sider { display: none; }
   .reading-grid { grid-template-columns: 1fr; }
   .record-grid { grid-template-columns: 1fr; }
+  .filter-grid { grid-template-columns: 1fr 1fr; }
+  .filter-grid > :first-child, .filter-grid > :nth-child(4) { grid-column: 1 / -1; }
 }
 
 @media (max-width: 600px) {
@@ -65,4 +91,9 @@ button, input { font: inherit; }
   .profile-button span { display: none; }
   .page-heading { flex-direction: column; }
   .login-options { align-items: flex-start; gap: 10px; flex-direction: column; }
+  .filter-grid, .form-grid { grid-template-columns: 1fr; }
+  .filter-grid > *, .filter-grid > :first-child, .filter-grid > :nth-child(4), .span-two { grid-column: 1; }
+  .records-list .ant-list-item { padding: 18px; }
+  .records-list .ant-list-item-action { margin-inline-start: 58px; }
+  .record-list-details { display: grid; gap: 5px; }
 }

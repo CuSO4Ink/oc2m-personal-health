@@ -43,3 +43,14 @@ Run `python seed_demo.py` from `backend/` once, then sign in with:
 - Password: `HealthDemo2026!`
 
 The account contains sample data only. The password-reset page displays its generated code in development until an email or SMS delivery service is connected.
+
+## Implemented modules
+
+- Account registration, session login, logout and development password reset
+- Health overview with recent records loaded from the API
+- Health record search and filtering by keyword, type, source and date
+- Self-reported record creation, editing and version history
+- Read-only provider-synced records with source and sync provenance
+- Ownership checks and optimistic version conflict protection in the API
+
+Provider system integration, correction requests, attachments, OCR and visit folders are represented in the interface and planned for a later phase.

@@ -7,6 +7,7 @@ from flask_cors import CORS
 from .extensions import db, login_manager
 from .models import User
 from .routes.auth import auth_bp
+from .routes.records import records_bp
 from .routes.system import system_bp
 
 
@@ -30,6 +31,7 @@ def create_app(test_config=None):
     login_manager.login_view = None
     CORS(app, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}}, supports_credentials=True)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(records_bp, url_prefix="/api/records")
     app.register_blueprint(system_bp, url_prefix="/api")
 
     with app.app_context():
