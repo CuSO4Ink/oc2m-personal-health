@@ -184,3 +184,112 @@ class HealthAlert(db.Model):
             "acknowledged_at": self.acknowledged_at.isoformat() + "Z" if self.acknowledged_at else None,
             "measurement": self.measurement.to_dict(status=self.severity),
         }
+
+
+class ShareRecipient(db.Model):
+    __tablename__ = "share_recipients"
+
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(60), nullable=False)
+    organisation = db.Column(db.String(160), nullable=False)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    verification_status = db.Column(db.String(20), nullable=False, default="verified")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "full_name": self.full_name,
+            "role": self.role,
+            "organisation": self.organisation,
+            "email": self.email,
+            "verification_status": self.verification_status,
+        }
+
+
+class ShareGrantRecord(db.Model):
+    __tablename__ = "share_grant_records"
+
+    grant_id = db.Column(db.Integer, db.ForeignKey("share_grants.id", ondelete="CASCADE"), primary_key=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("health_records.id", ondelete="CASCADE"), primary_key=True)
+    record = db.relationship("HealthRecord", backref=db.backref("share_links", cascade="all, delete-orphan"))
+
+
+class ShareGrant(db.Model):
+    __tablename__ = "share_grants"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("share_recipients.id"), nullable=False, index=True)
+    starts_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    allow_download = db.Column(db.Boolean, nullable=False, default=False)
+    purpose = db.Column(db.String(200), nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    revoked_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("share_grants", cascade="all, delete-orphan"))
+    recipient = db.relationship("ShareRecipient", backref="share_grants")
+    record_links = db.relationship("ShareGrantRecord", backref="grant", cascade="all, delete-orphan", lazy="select")
+
+    @property
+    def status(self):
+        now = utc_now()
+        if self.revoked_at:
+            return "revoked"
+        if self.starts_at > now:
+            return "scheduled"
+        if self.expires_at <= now:
+            return "expired"
+        return "active"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "recipient": self.recipient.to_dict(),
+            "records": [{
+                "id": link.record.id,
+                "title": link.record.title,
+                "record_type": link.record.record_type,
+                "record_date": link.record.record_date.isoformat(),
+                "source_name": link.record.source_name,
+            } for link in self.record_links],
+            "starts_at": self.starts_at.isoformat() + "Z",
+            "expires_at": self.expires_at.isoformat() + "Z",
+            "allow_download": self.allow_download,
+            "allowed_actions": ["view", "download"] if self.allow_download else ["view"],
+            "purpose": self.purpose,
+            "created_at": self.created_at.isoformat() + "Z",
+            "revoked_at": self.revoked_at.isoformat() + "Z" if self.revoked_at else None,
+            "status": self.status,
+        }
+
+
+class AccessEvent(db.Model):
+    __tablename__ = "access_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    grant_id = db.Column(db.Integer, db.ForeignKey("share_grants.id", ondelete="CASCADE"), nullable=False, index=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("health_records.id", ondelete="CASCADE"), nullable=False)
+    action = db.Column(db.String(30), nullable=False)
+    result = db.Column(db.String(30), nullable=False)
+    location = db.Column(db.String(120), nullable=False, default="Location unavailable")
+    occurred_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+    unusual = db.Column(db.Boolean, nullable=False, default=False)
+
+    grant = db.relationship("ShareGrant", backref=db.backref("access_events", cascade="all, delete-orphan"))
+    record = db.relationship("HealthRecord")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "grant_id": self.grant_id,
+            "recipient": self.grant.recipient.to_dict(),
+            "record": {"id": self.record.id, "title": self.record.title},
+            "action": self.action,
+            "result": self.result,
+            "location": self.location,
+            "occurred_at": self.occurred_at.isoformat() + "Z",
+            "unusual": self.unusual,
+        }

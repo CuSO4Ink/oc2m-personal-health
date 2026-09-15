@@ -17,7 +17,7 @@ def modules():
                 {"key": "overview", "name": "Overview", "status": "implemented"},
                 {"key": "records", "name": "Health Records", "status": "implemented"},
                 {"key": "insights", "name": "Health Insights", "status": "implemented"},
-                {"key": "sharing", "name": "Sharing & Privacy", "status": "planned"},
+                {"key": "sharing", "name": "Sharing & Privacy", "status": "implemented"},
                 {"key": "services", "name": "Care Services", "status": "planned"},
                 {"key": "community", "name": "Community", "status": "optional"},
             ]

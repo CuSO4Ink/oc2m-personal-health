@@ -56,5 +56,8 @@ The account contains sample data only. The password-reset page displays its gene
 - Validated manual reading entry with fixed units, source and collection time
 - Versioned reference-threshold alerts with review status
 - Data-sufficiency notices and traceable rule-based trend summaries
+- Verified healthcare-recipient directory and fixed-record sharing permissions
+- Permission preview, view/download controls, expiry and immediate revocation
+- Account-isolated access activity with action, result, time, location and review flags
 
-Provider system integration, correction requests, attachments, OCR, visit folders and clinically approved personalised risk reports are represented in the interface and planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports and cross-system access enforcement are planned for a later phase.

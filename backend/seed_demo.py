@@ -2,7 +2,7 @@ from app import create_app
 from app.extensions import db
 from datetime import date, datetime
 
-from app.models import HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, User
+from app.models import AccessEvent, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, ShareGrant, ShareGrantRecord, ShareRecipient, User
 
 
 DEMO_EMAIL = "alex.morgan@example.com"
@@ -127,5 +127,50 @@ with app.app_context():
             rule_name="blood_pressure_reference_threshold",
             rule_version="1.0",
         ))
+    recipients = []
+    recipient_rows = [
+        ("Dr. Emily Chen", "General Practitioner", "Riverside Community Clinic", "emily.chen@example.test"),
+        ("Dr. Samuel Malik", "Cardiologist", "City General Hospital", "samuel.malik@example.test"),
+        ("Jordan Lee", "Health Manager", "Community Wellness Centre", "jordan.lee@example.test"),
+    ]
+    for full_name, role, organisation, email in recipient_rows:
+        recipient = ShareRecipient.query.filter_by(email=email).first()
+        if not recipient:
+            recipient = ShareRecipient(full_name=full_name, role=role, organisation=organisation, email=email, verification_status="verified")
+            db.session.add(recipient)
+        recipients.append(recipient)
+    db.session.flush()
+    if not ShareGrant.query.filter_by(user_id=user.id).first():
+        records = HealthRecord.query.filter_by(user_id=user.id).order_by(HealthRecord.id.asc()).all()
+        active_grant = ShareGrant(
+            user_id=user.id,
+            recipient_id=recipients[0].id,
+            starts_at=datetime(2026, 9, 10, 9, 0),
+            expires_at=datetime(2026, 9, 20, 23, 59),
+            allow_download=False,
+            purpose="Follow-up consultation",
+        )
+        revoked_grant = ShareGrant(
+            user_id=user.id,
+            recipient_id=recipients[1].id,
+            starts_at=datetime(2026, 8, 1, 9, 0),
+            expires_at=datetime(2026, 10, 1, 23, 59),
+            allow_download=True,
+            purpose="Cardiology review",
+            revoked_at=datetime(2026, 8, 18, 11, 30),
+        )
+        db.session.add_all([active_grant, revoked_grant])
+        db.session.flush()
+        for record in records[:3]:
+            db.session.add(ShareGrantRecord(grant_id=active_grant.id, record_id=record.id))
+        for record in records[:2]:
+            db.session.add(ShareGrantRecord(grant_id=revoked_grant.id, record_id=record.id))
+        db.session.flush()
+        db.session.add_all([
+            AccessEvent(user_id=user.id, grant_id=active_grant.id, record_id=records[0].id, action="view", result="allowed", location="Dundee, UK", occurred_at=datetime(2026, 9, 14, 14, 20)),
+            AccessEvent(user_id=user.id, grant_id=active_grant.id, record_id=records[1].id, action="view", result="allowed", location="Dundee, UK", occurred_at=datetime(2026, 9, 12, 10, 5)),
+            AccessEvent(user_id=user.id, grant_id=active_grant.id, record_id=records[0].id, action="download", result="blocked", location="Location unavailable", occurred_at=datetime(2026, 9, 14, 14, 22), unusual=True),
+            AccessEvent(user_id=user.id, grant_id=revoked_grant.id, record_id=records[0].id, action="view", result="blocked", location="Dundee, UK", occurred_at=datetime(2026, 8, 19, 9, 10)),
+        ])
     db.session.commit()
     print(f"Demo account ready: {DEMO_EMAIL}")

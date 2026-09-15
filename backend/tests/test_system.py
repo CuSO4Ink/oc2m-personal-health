@@ -1,8 +1,8 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from app import create_app
 from app.extensions import db
-from app.models import HealthRecord, User
+from app.models import AccessEvent, HealthRecord, ShareRecipient, User
 
 
 def test_health_check():
@@ -173,3 +173,86 @@ def test_health_measurements_trends_alerts_and_ownership():
     })
     assert client.get("/api/insights/metrics?metric=blood_pressure&days=30").get_json()["summary"]["count"] == 0
     assert client.patch(f"/api/insights/alerts/{alert['id']}/acknowledge").status_code == 404
+
+
+def test_sharing_permission_preview_lifecycle_and_ownership():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Sharing Owner",
+        "email": "sharing@example.com",
+        "password": "Patient123",
+    })
+    record_ids = []
+    for title in ["Report A", "Report B"]:
+        response = client.post("/api/records", json={
+            "title": title,
+            "record_type": "Lab Report",
+            "record_date": date.today().isoformat(),
+            "source_name": "Self-reported",
+            "content": "Test content",
+        })
+        record_ids.append(response.get_json()["record"]["id"])
+    with app.app_context():
+        recipient = ShareRecipient(
+            full_name="Dr. Verified",
+            role="General Practitioner",
+            organisation="Test Clinic",
+            email="verified@example.test",
+            verification_status="verified",
+        )
+        db.session.add(recipient)
+        db.session.commit()
+        recipient_id = recipient.id
+
+    now = datetime.now(timezone.utc)
+    created = client.post("/api/sharing/grants", json={
+        "recipient_id": recipient_id,
+        "record_ids": record_ids,
+        "starts_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=7)).isoformat(),
+        "allow_download": False,
+        "purpose": "Review test results",
+    })
+    assert created.status_code == 201
+    grant = created.get_json()["grant"]
+    assert grant["status"] == "active"
+    assert grant["allowed_actions"] == ["view"]
+    assert {record["id"] for record in grant["records"]} == set(record_ids)
+
+    with app.app_context():
+        owner = User.query.filter_by(email="sharing@example.com").first()
+        db.session.add(AccessEvent(
+            user_id=owner.id,
+            grant_id=grant["id"],
+            record_id=record_ids[0],
+            action="view",
+            result="allowed",
+            location="Test location",
+        ))
+        db.session.commit()
+    events = client.get("/api/sharing/access-events?action=view&result=allowed").get_json()["events"]
+    assert len(events) == 1
+    assert events[0]["record"]["id"] == record_ids[0]
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={
+        "full_name": "Other Sharing User",
+        "email": "other-sharing@example.com",
+        "password": "Patient123",
+    })
+    assert client.get("/api/sharing/grants").get_json()["grants"] == []
+    assert client.patch(f"/api/sharing/grants/{grant['id']}/revoke").status_code == 404
+    invalid_scope = client.post("/api/sharing/grants", json={
+        "recipient_id": recipient_id,
+        "record_ids": record_ids,
+        "starts_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=7)).isoformat(),
+    })
+    assert invalid_scope.status_code == 400
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/login", json={"email": "sharing@example.com", "password": "Patient123"})
+    revoked = client.patch(f"/api/sharing/grants/{grant['id']}/revoke")
+    assert revoked.status_code == 200
+    assert revoked.get_json()["grant"]["status"] == "revoked"
