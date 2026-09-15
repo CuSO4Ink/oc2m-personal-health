@@ -5,6 +5,7 @@ import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react
 import api, { apiMessage } from './api'
 import { AuthProvider, useAuth } from './auth'
 import { RecordDetailPage, RecordFormPage, RecordHistoryPage, RecordsPage } from './HealthRecords'
+import HealthInsightsPage from './HealthInsights'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -19,7 +20,6 @@ const navItems = [
 ]
 
 const plannedPages = {
-  '/insights': ['Health Insights', 'Understand changes in your readings and review health reports.'],
   '/sharing': ['Sharing & Privacy', 'Control who can access selected records and review access activity.'],
   '/services': ['Care Services', 'Explore medical appointments and elderly care services.'],
   '/community': ['Community', 'A private, optional space for peer support and shared experiences.'],
@@ -158,15 +158,19 @@ function AppShell() {
   return <Layout className="app-shell"><Sider width={260} theme="light" className="app-sider"><Brand /><Menu mode="inline" selectedKeys={[location.pathname]} items={navItems} onClick={({ key }) => navigate(key)} /></Sider><Layout><Header className="app-header"><Text>{pageTitle}</Text><Space size="large"><Button aria-label="Open notifications" type="text" shape="circle" icon={<BellOutlined />} onClick={() => navigate('/notifications')} /><Dropdown menu={accountMenu} trigger={['click']}><button className="profile-button"><Avatar>{user.initials}</Avatar><span>{user.full_name}</span><DownOutlined /></button></Dropdown></Space></Header><Content className="app-content"><Outlet /></Content></Layout></Layout>
 }
 
-const readings = [['Blood Pressure', '120/80', 'mmHg', '11 Sep 2026, 08:30'], ['Blood Glucose · Fasting', '5.4', 'mmol/L', '13 Sep 2026, 07:15'], ['Heart Rate', '72', 'bpm', '13 Sep 2026, 08:35']]
-
 function OverviewPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const firstName = user.full_name.split(' ')[0]
   const [recentRecords, setRecentRecords] = React.useState([])
+  const [latestReadings, setLatestReadings] = React.useState([])
   React.useEffect(() => { api.get('/records').then(({ data }) => setRecentRecords(data.records.slice(0, 2))).catch(() => {}) }, [])
-  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records/new')}>Add Record</Button></div><div className="warning-banner"><b>A sharing permission expires soon</b><span>Dr. Emily Chen’s access to 3 selected records expires on 14 Sep 2026. Review it in Sharing & Privacy.</span></div><section><Title level={3}>Latest Readings</Title><div className="reading-grid">{readings.map(([name, value, unit, date]) => <Card key={name} className="reading-card"><Text strong>{name}</Text><div className="reading-value">{value} <small>{unit}</small></div><Text type="secondary">Recorded on {date}</Text><Text type="secondary">Source: Manual entry</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid">{recentRecords.map((record) => <Card key={record.id} hoverable onClick={() => navigate(`/records/${record.id}`)}><Tag>{record.record_type}</Tag><Title level={4}>{record.title}</Title><Text type="secondary">Record date: {new Date(`${record.record_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></Card>)}</div></section></div>
+  React.useEffect(() => {
+    Promise.all(['blood_pressure', 'blood_glucose', 'heart_rate'].map((metric) => api.get('/insights/metrics', { params: { metric, days: 365 } })))
+      .then((responses) => setLatestReadings(responses.map(({ data }) => ({ ...data.latest, label: data.metric.label })).filter((item) => item.id)))
+      .catch(() => {})
+  }, [])
+  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records/new')}>Add Record</Button></div><div className="warning-banner"><b>A sharing permission expires soon</b><span>Dr. Emily Chen’s access to 3 selected records expires on 14 Sep 2026. Review it in Sharing & Privacy.</span></div><section><Title level={3}>Latest Readings</Title><div className="reading-grid">{latestReadings.map((reading) => <Card key={reading.metric_type} className="reading-card"><Text strong>{reading.label}{reading.context === 'fasting' ? ' · Fasting' : ''}</Text><div className="reading-value">{reading.secondary_value == null ? reading.value : `${reading.value}/${reading.secondary_value}`} <small>{reading.unit}</small></div><Text type="secondary">Recorded on {new Date(reading.measured_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text type="secondary">Source: {reading.source_name}</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid">{recentRecords.map((record) => <Card key={record.id} hoverable onClick={() => navigate(`/records/${record.id}`)}><Tag>{record.record_type}</Tag><Title level={4}>{record.title}</Title><Text type="secondary">Record date: {new Date(`${record.record_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></Card>)}</div></section></div>
 }
 
 function PlannedPage() {
@@ -176,5 +180,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }

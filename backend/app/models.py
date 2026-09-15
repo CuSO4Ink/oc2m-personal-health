@@ -119,3 +119,68 @@ class HealthRecordVersion(db.Model):
             "change_note": self.change_note,
             "created_at": self.created_at.isoformat() + "Z",
         }
+
+
+class HealthMeasurement(db.Model):
+    __tablename__ = "health_measurements"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    metric_type = db.Column(db.String(30), nullable=False, index=True)
+    value = db.Column(db.Float, nullable=False)
+    secondary_value = db.Column(db.Float)
+    unit = db.Column(db.String(20), nullable=False)
+    context = db.Column(db.String(40), nullable=False, default="")
+    measured_at = db.Column(db.DateTime, nullable=False, index=True)
+    source_type = db.Column(db.String(20), nullable=False, default="self")
+    source_name = db.Column(db.String(120), nullable=False, default="Manual entry")
+    notes = db.Column(db.String(300), nullable=False, default="")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship("User", backref=db.backref("health_measurements", cascade="all, delete-orphan"))
+
+    def to_dict(self, status=None):
+        return {
+            "id": self.id,
+            "metric_type": self.metric_type,
+            "value": self.value,
+            "secondary_value": self.secondary_value,
+            "unit": self.unit,
+            "context": self.context,
+            "measured_at": self.measured_at.isoformat() + "Z",
+            "source_type": self.source_type,
+            "source_name": self.source_name,
+            "notes": self.notes,
+            "status": status,
+        }
+
+
+class HealthAlert(db.Model):
+    __tablename__ = "health_alerts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    measurement_id = db.Column(db.Integer, db.ForeignKey("health_measurements.id", ondelete="CASCADE"), nullable=False, unique=True)
+    severity = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(160), nullable=False)
+    message = db.Column(db.String(400), nullable=False)
+    rule_name = db.Column(db.String(80), nullable=False)
+    rule_version = db.Column(db.String(20), nullable=False, default="1.0")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    acknowledged_at = db.Column(db.DateTime)
+
+    measurement = db.relationship("HealthMeasurement", backref=db.backref("alert", uselist=False, cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "measurement_id": self.measurement_id,
+            "severity": self.severity,
+            "title": self.title,
+            "message": self.message,
+            "rule_name": self.rule_name,
+            "rule_version": self.rule_version,
+            "created_at": self.created_at.isoformat() + "Z",
+            "acknowledged_at": self.acknowledged_at.isoformat() + "Z" if self.acknowledged_at else None,
+            "measurement": self.measurement.to_dict(status=self.severity),
+        }

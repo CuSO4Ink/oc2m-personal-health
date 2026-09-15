@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app import create_app
 from app.extensions import db
@@ -117,3 +117,59 @@ def test_health_record_crud_history_permissions_and_search():
         "password": "Patient123",
     })
     assert client.get(f"/api/records/{record['id']}").status_code == 404
+
+
+def test_health_measurements_trends_alerts_and_ownership():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Insights Owner",
+        "email": "insights@example.com",
+        "password": "Patient123",
+    })
+    measured_at = datetime.now(timezone.utc).isoformat()
+
+    normal = client.post("/api/insights/metrics", json={
+        "metric_type": "blood_pressure",
+        "value": 122,
+        "secondary_value": 78,
+        "measured_at": measured_at,
+        "source_name": "Home monitor",
+    })
+    assert normal.status_code == 201
+    assert normal.get_json()["measurement"]["status"] == "in_range"
+    assert normal.get_json()["alert"] is None
+
+    high = client.post("/api/insights/metrics", json={
+        "metric_type": "blood_pressure",
+        "value": 150,
+        "secondary_value": 95,
+        "measured_at": measured_at,
+        "source_name": "Manual entry",
+    })
+    assert high.status_code == 201
+    alert = high.get_json()["alert"]
+    assert alert["severity"] == "high"
+
+    trend = client.get("/api/insights/metrics?metric=blood_pressure&days=30").get_json()
+    assert trend["summary"]["count"] == 2
+    assert trend["data_sufficiency"]["status"] == "limited"
+    assert len(client.get("/api/insights/alerts").get_json()["alerts"]) == 1
+    assert client.patch(f"/api/insights/alerts/{alert['id']}/acknowledge").status_code == 200
+    assert client.get("/api/insights/alerts").get_json()["alerts"] == []
+
+    invalid = client.post("/api/insights/metrics", json={
+        "metric_type": "blood_glucose",
+        "value": 5.5,
+        "measured_at": measured_at,
+    })
+    assert invalid.status_code == 400
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={
+        "full_name": "Other Insights User",
+        "email": "other-insights@example.com",
+        "password": "Patient123",
+    })
+    assert client.get("/api/insights/metrics?metric=blood_pressure&days=30").get_json()["summary"]["count"] == 0
+    assert client.patch(f"/api/insights/alerts/{alert['id']}/acknowledge").status_code == 404

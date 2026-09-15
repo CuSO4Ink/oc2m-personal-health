@@ -52,5 +52,9 @@ The account contains sample data only. The password-reset page displays its gene
 - Self-reported record creation, editing and version history
 - Read-only provider-synced records with source and sync provenance
 - Ownership checks and optimistic version conflict protection in the API
+- Blood pressure, blood glucose and heart-rate trend charts with time filters
+- Validated manual reading entry with fixed units, source and collection time
+- Versioned reference-threshold alerts with review status
+- Data-sufficiency notices and traceable rule-based trend summaries
 
-Provider system integration, correction requests, attachments, OCR and visit folders are represented in the interface and planned for a later phase.
+Provider system integration, correction requests, attachments, OCR, visit folders and clinically approved personalised risk reports are represented in the interface and planned for a later phase.

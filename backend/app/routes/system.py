@@ -14,13 +14,12 @@ def modules():
     return jsonify(
         {
             "modules": [
-                {"key": "overview", "name": "Overview", "status": "in-development"},
-                {"key": "records", "name": "Health Records", "status": "in-development"},
-                {"key": "insights", "name": "Health Insights", "status": "planned"},
+                {"key": "overview", "name": "Overview", "status": "implemented"},
+                {"key": "records", "name": "Health Records", "status": "implemented"},
+                {"key": "insights", "name": "Health Insights", "status": "implemented"},
                 {"key": "sharing", "name": "Sharing & Privacy", "status": "planned"},
                 {"key": "services", "name": "Care Services", "status": "planned"},
                 {"key": "community", "name": "Community", "status": "optional"},
             ]
         }
     )
-
