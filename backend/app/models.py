@@ -293,3 +293,172 @@ class AccessEvent(db.Model):
             "occurred_at": self.occurred_at.isoformat() + "Z",
             "unusual": self.unusual,
         }
+
+
+class ServiceFacility(db.Model):
+    __tablename__ = "service_facilities"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False, unique=True)
+    address = db.Column(db.String(240), nullable=False)
+    phone = db.Column(db.String(40), nullable=False, default="")
+    verified = db.Column(db.Boolean, nullable=False, default=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "address": self.address,
+            "phone": self.phone,
+            "verified": self.verified,
+            "updated_at": self.updated_at.isoformat() + "Z",
+        }
+
+
+class MedicalService(db.Model):
+    __tablename__ = "medical_services"
+
+    id = db.Column(db.Integer, primary_key=True)
+    facility_id = db.Column(db.Integer, db.ForeignKey("service_facilities.id"), nullable=False, index=True)
+    name = db.Column(db.String(140), nullable=False)
+    specialty = db.Column(db.String(80), nullable=False, index=True)
+    appointment_mode = db.Column(db.String(30), nullable=False, default="in_person")
+    duration_minutes = db.Column(db.Integer, nullable=False, default=20)
+    cost_label = db.Column(db.String(80), nullable=False, default="Contact provider")
+    active = db.Column(db.Boolean, nullable=False, default=True)
+
+    facility = db.relationship("ServiceFacility", backref="medical_services")
+
+    def to_dict(self, include_slots=False):
+        result = {
+            "id": self.id,
+            "name": self.name,
+            "specialty": self.specialty,
+            "appointment_mode": self.appointment_mode,
+            "duration_minutes": self.duration_minutes,
+            "cost_label": self.cost_label,
+            "facility": self.facility.to_dict(),
+        }
+        if include_slots:
+            result["slots"] = [slot.to_dict() for slot in self.slots if slot.starts_at > utc_now()]
+        return result
+
+
+class AppointmentSlot(db.Model):
+    __tablename__ = "appointment_slots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey("medical_services.id"), nullable=False, index=True)
+    starts_at = db.Column(db.DateTime, nullable=False, index=True)
+    ends_at = db.Column(db.DateTime, nullable=False)
+    capacity = db.Column(db.Integer, nullable=False, default=1)
+    booked_count = db.Column(db.Integer, nullable=False, default=0)
+
+    service = db.relationship("MedicalService", backref=db.backref("slots", order_by="AppointmentSlot.starts_at.asc()"))
+
+    @property
+    def available_places(self):
+        return max(0, self.capacity - self.booked_count)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "starts_at": self.starts_at.isoformat() + "Z",
+            "ends_at": self.ends_at.isoformat() + "Z",
+            "capacity": self.capacity,
+            "available_places": self.available_places,
+            "available": self.starts_at > utc_now() and self.available_places > 0,
+        }
+
+
+class Appointment(db.Model):
+    __tablename__ = "appointments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    slot_id = db.Column(db.Integer, db.ForeignKey("appointment_slots.id"), nullable=False, index=True)
+    reason = db.Column(db.String(300), nullable=False, default="")
+    status = db.Column(db.String(30), nullable=False, default="confirmed", index=True)
+    booked_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    cancelled_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("appointments", cascade="all, delete-orphan"))
+    slot = db.relationship("AppointmentSlot", backref="appointments")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "reason": self.reason,
+            "status": self.status,
+            "booked_at": self.booked_at.isoformat() + "Z",
+            "cancelled_at": self.cancelled_at.isoformat() + "Z" if self.cancelled_at else None,
+            "slot": self.slot.to_dict(),
+            "service": self.slot.service.to_dict(),
+        }
+
+
+class HealthReminder(db.Model):
+    __tablename__ = "health_reminders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = db.Column(db.String(160), nullable=False)
+    category = db.Column(db.String(40), nullable=False, default="general")
+    next_due_at = db.Column(db.DateTime, nullable=False, index=True)
+    schedule_note = db.Column(db.String(160), nullable=False, default="One time")
+    source_name = db.Column(db.String(120), nullable=False, default="Personal reminder")
+    notes = db.Column(db.String(300), nullable=False, default="")
+    completed_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship("User", backref=db.backref("health_reminders", cascade="all, delete-orphan"))
+
+    @property
+    def status(self):
+        if self.completed_at:
+            return "completed"
+        if self.next_due_at < utc_now():
+            return "overdue"
+        return "upcoming"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "category": self.category,
+            "next_due_at": self.next_due_at.isoformat() + "Z",
+            "schedule_note": self.schedule_note,
+            "source_name": self.source_name,
+            "notes": self.notes,
+            "completed_at": self.completed_at.isoformat() + "Z" if self.completed_at else None,
+            "status": self.status,
+        }
+
+
+class ElderCareListing(db.Model):
+    __tablename__ = "elder_care_listings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(180), nullable=False, unique=True)
+    category = db.Column(db.String(60), nullable=False, index=True)
+    address = db.Column(db.String(240), nullable=False)
+    summary = db.Column(db.String(500), nullable=False)
+    services = db.Column(db.JSON, nullable=False)
+    accessibility = db.Column(db.String(240), nullable=False, default="")
+    source_name = db.Column(db.String(140), nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "address": self.address,
+            "summary": self.summary,
+            "services": self.services,
+            "accessibility": self.accessibility,
+            "source_name": self.source_name,
+            "updated_at": self.updated_at.isoformat() + "Z",
+        }

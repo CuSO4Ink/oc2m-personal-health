@@ -59,5 +59,10 @@ The account contains sample data only. The password-reset page displays its gene
 - Verified healthcare-recipient directory and fixed-record sharing permissions
 - Permission preview, view/download controls, expiry and immediate revocation
 - Account-isolated access activity with action, result, time, location and review flags
+- Verified medical-service catalogue with live local appointment capacity
+- Appointment review, confirmation, duplicate/full-slot checks and cancellation
+- Personal health reminders with due-state tracking and completion
+- Searchable elder-care information directory with source and update provenance
+- Care appointment and task summaries on the health overview
 
-Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports and cross-system access enforcement are planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling and live elder-care booking are planned for a later phase.

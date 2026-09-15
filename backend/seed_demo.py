@@ -1,8 +1,8 @@
 from app import create_app
 from app.extensions import db
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from app.models import AccessEvent, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, ShareGrant, ShareGrantRecord, ShareRecipient, User
+from app.models import AccessEvent, Appointment, AppointmentSlot, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
 
 
 DEMO_EMAIL = "alex.morgan@example.com"
@@ -172,5 +172,55 @@ with app.app_context():
             AccessEvent(user_id=user.id, grant_id=active_grant.id, record_id=records[0].id, action="download", result="blocked", location="Location unavailable", occurred_at=datetime(2026, 9, 14, 14, 22), unusual=True),
             AccessEvent(user_id=user.id, grant_id=revoked_grant.id, record_id=records[0].id, action="view", result="blocked", location="Dundee, UK", occurred_at=datetime(2026, 8, 19, 9, 10)),
         ])
+    demo_now = utc_now().replace(second=0, microsecond=0)
+    facility_rows = [
+        ("Riverside Community Clinic", "18 Riverside Way, Dundee", "+44 1382 555 110"),
+        ("City General Hospital", "1 Health Campus, Dundee", "+44 1382 555 220"),
+    ]
+    facilities = {}
+    for name, address, phone in facility_rows:
+        facility = ServiceFacility.query.filter_by(name=name).first()
+        if not facility:
+            facility = ServiceFacility(name=name, address=address, phone=phone, verified=True, updated_at=demo_now)
+            db.session.add(facility)
+        facilities[name] = facility
+    db.session.flush()
+    service_rows = [
+        ("Riverside Community Clinic", "GP Follow-up", "General Practice", 20, "NHS covered"),
+        ("City General Hospital", "Cardiology Consultation", "Cardiology", 30, "Referral may be required"),
+        ("Riverside Community Clinic", "Health Management Review", "Preventive Care", 30, "NHS covered"),
+    ]
+    services = []
+    for facility_name, name, specialty, duration, cost_label in service_rows:
+        service = MedicalService.query.filter_by(facility_id=facilities[facility_name].id, name=name).first()
+        if not service:
+            service = MedicalService(facility_id=facilities[facility_name].id, name=name, specialty=specialty, duration_minutes=duration, cost_label=cost_label, appointment_mode="in_person")
+            db.session.add(service)
+        services.append(service)
+    db.session.flush()
+    if not AppointmentSlot.query.first():
+        for service_index, service in enumerate(services):
+            for day_offset, hour in [(1 + service_index, 9), (2 + service_index, 11), (4 + service_index, 14)]:
+                start = (demo_now + timedelta(days=day_offset)).replace(hour=hour, minute=0)
+                db.session.add(AppointmentSlot(service_id=service.id, starts_at=start, ends_at=start + timedelta(minutes=service.duration_minutes), capacity=2, booked_count=0))
+        db.session.flush()
+    if not Appointment.query.filter_by(user_id=user.id).first():
+        demo_slot = AppointmentSlot.query.join(AppointmentSlot.service).filter(MedicalService.name == "GP Follow-up", AppointmentSlot.starts_at > demo_now).order_by(AppointmentSlot.starts_at.asc()).first()
+        demo_slot.booked_count += 1
+        db.session.add(Appointment(user_id=user.id, slot_id=demo_slot.id, reason="Review recent home blood pressure readings", status="confirmed"))
+    if not HealthReminder.query.filter_by(user_id=user.id).first():
+        db.session.add_all([
+            HealthReminder(user_id=user.id, title="Record morning blood pressure", category="measurement", next_due_at=demo_now + timedelta(hours=10), schedule_note="Twice each week", source_name="Personal reminder", notes="Rest for five minutes before measuring."),
+            HealthReminder(user_id=user.id, title="Take Vitamin D", category="medication", next_due_at=demo_now - timedelta(hours=2), schedule_note="Every morning", source_name="Personal reminder"),
+            HealthReminder(user_id=user.id, title="Prepare questions for GP visit", category="appointment", next_due_at=demo_now + timedelta(days=1), schedule_note="Before the appointment", source_name="Personal reminder"),
+        ])
+    elder_rows = [
+        ("Dundee Community Day Centre", "Day support", "24 Community Road, Dundee", "Daytime social support, meals and wellbeing activities for older adults.", ["Day activities", "Lunch service", "Transport support"], "Step-free entrance and accessible toilets"),
+        ("Riverside Home Support", "Home care", "Serving Dundee and nearby areas", "Scheduled assistance at home with daily living and wellbeing checks.", ["Personal care", "Meal support", "Wellbeing visits"], "Home assessment available"),
+        ("Harbour Respite Centre", "Respite care", "7 Harbour Street, Dundee", "Short-stay respite information for individuals and family carers.", ["Short stays", "Carer support", "Nursing support"], "Wheelchair accessible rooms"),
+    ]
+    for name, category, address, summary, offered_services, accessibility in elder_rows:
+        if not ElderCareListing.query.filter_by(name=name).first():
+            db.session.add(ElderCareListing(name=name, category=category, address=address, summary=summary, services=offered_services, accessibility=accessibility, source_name="Demo local care directory", updated_at=demo_now, active=True))
     db.session.commit()
     print(f"Demo account ready: {DEMO_EMAIL}")

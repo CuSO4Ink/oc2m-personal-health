@@ -134,6 +134,47 @@ button, input, textarea { font: inherit; }
 .fixed-scope-note { display: flex; gap: 9px; align-items: flex-start; margin-top: 16px; padding: 13px 15px; border-radius: 8px; background: #f3faf9; color: #2f716b; }
 .grant-detail h3.ant-typography { margin: 16px 0 4px; }
 .warning-banner .ant-btn { height: auto; padding: 0 2px; }
+.overview-care-card .ant-card-body { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.overview-care-card .anticon { color: #397f78; font-size: 22px; }
+.overview-care-card .ant-card-body > div { display: grid; gap: 4px; }
+
+.care-page { gap: 22px; }
+.care-summary { display: grid; grid-template-columns: 1.4fr .6fr; gap: 18px; }
+.care-summary .ant-card-body { min-height: 160px; }
+.next-care-card .ant-card-body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.next-care-card h3.ant-typography { margin: 3px 0 0; }
+.service-panel { display: grid; gap: 30px; }
+.appointment-list, .medical-service-grid, .elder-grid { display: grid; gap: 14px; }
+.appointment-card .ant-card-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; }
+.appointment-date { width: 58px; height: 64px; border-radius: 10px; background: #e5f2f0; color: #2f716b; display: grid; place-content: center; justify-items: center; }
+.appointment-date b { font-size: 24px; line-height: 1; }
+.appointment-date span { margin-top: 4px; font-size: 12px; text-transform: uppercase; }
+.appointment-info { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.appointment-info h4.ant-typography { margin: 2px 0 0; }
+.medical-service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.medical-service-card .ant-card-body { min-height: 285px; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; }
+.medical-service-card h4.ant-typography, .elder-card h4.ant-typography { margin: 15px 0 6px; }
+.service-detail { display: grid; gap: 8px; margin-top: 14px; color: #667085; }
+.service-detail span { display: flex; align-items: flex-start; gap: 7px; }
+.availability { padding-top: 15px; border-top: 1px solid #edf0f3; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.booking-form, .booking-review { margin-top: 24px; display: grid; gap: 16px; }
+.slot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.slot-grid .ant-radio-button-wrapper { height: auto; padding: 12px 14px; border: 1px solid #dfe4e8; border-radius: 8px !important; display: grid; line-height: 1.35; }
+.slot-grid .ant-radio-button-wrapper::before { display: none; }
+.slot-grid .ant-radio-button-wrapper span { color: #667085; font-size: 12px; margin-top: 3px; }
+.booking-review .ant-descriptions { margin-top: 4px; }
+.reminder-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.reminder-list { border: 1px solid #e6eaee; border-radius: 10px; overflow: hidden; }
+.reminder-list .ant-list-item { padding: 18px 20px; }
+.reminder-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; color: #397f78; background: #e5f2f0; font-size: 18px; }
+.reminder-icon.medication { color: #6b4aa0; background: #f3ecfb; }
+.reminder-icon.appointment { color: #436a9f; background: #eaf1fb; }
+.reminder-detail { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; color: #667085; }
+.elder-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.elder-card .ant-card-body { min-height: 330px; display: flex; flex-direction: column; align-items: flex-start; }
+.elder-card .service-detail { margin-bottom: 20px; }
+.elder-card .ant-btn { margin-top: auto; }
+.directory-note { margin-top: 18px; }
 
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
@@ -146,6 +187,7 @@ button, input, textarea { font: inherit; }
   .filter-grid > :first-child, .filter-grid > :nth-child(4) { grid-column: 1 / -1; }
   .insight-lower-grid { grid-template-columns: 1fr; }
   .grant-card .ant-card-body { align-items: flex-start; flex-direction: column; }
+  .medical-service-grid, .elder-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
@@ -167,4 +209,7 @@ button, input, textarea { font: inherit; }
   .two-field-row { grid-template-columns: 1fr; gap: 0; }
   .privacy-stats, .record-checkbox-group { grid-template-columns: 1fr; }
   .activity-filters { flex-direction: column; }
+  .overview-care-card .ant-card-body, .appointment-card .ant-card-body { grid-template-columns: 1fr; }
+  .care-summary, .reminder-stats, .slot-grid { grid-template-columns: 1fr; }
+  .appointment-date { display: none; }
 }

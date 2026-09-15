@@ -10,6 +10,7 @@ from .routes.auth import auth_bp
 from .routes.insights import insights_bp
 from .routes.records import records_bp
 from .routes.sharing import sharing_bp
+from .routes.services import services_bp
 from .routes.system import system_bp
 
 
@@ -36,6 +37,7 @@ def create_app(test_config=None):
     app.register_blueprint(insights_bp, url_prefix="/api/insights")
     app.register_blueprint(records_bp, url_prefix="/api/records")
     app.register_blueprint(sharing_bp, url_prefix="/api/sharing")
+    app.register_blueprint(services_bp, url_prefix="/api/services")
     app.register_blueprint(system_bp, url_prefix="/api")
 
     with app.app_context():

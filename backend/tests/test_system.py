@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app import create_app
 from app.extensions import db
-from app.models import AccessEvent, HealthRecord, ShareRecipient, User
+from app.models import AccessEvent, AppointmentSlot, ElderCareListing, HealthRecord, MedicalService, ServiceFacility, ShareRecipient, User
 
 
 def test_health_check():
@@ -256,3 +256,59 @@ def test_sharing_permission_preview_lifecycle_and_ownership():
     revoked = client.patch(f"/api/sharing/grants/{grant['id']}/revoke")
     assert revoked.status_code == 200
     assert revoked.get_json()["grant"]["status"] == "revoked"
+
+
+def test_care_booking_reminders_catalog_and_ownership():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Care User",
+        "email": "care@example.com",
+        "password": "Patient123",
+    })
+    with app.app_context():
+        facility = ServiceFacility(name="Test Health Centre", address="1 Test Road", phone="000", verified=True)
+        service = MedicalService(facility=facility, name="GP Review", specialty="General Practice", duration_minutes=20, cost_label="Test coverage")
+        start = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
+        slot = AppointmentSlot(service=service, starts_at=start, ends_at=start + timedelta(minutes=20), capacity=1)
+        listing = ElderCareListing(name="Test Day Centre", category="Day support", address="Test area", summary="Test information", services=["Day activities"], accessibility="Step free", source_name="Test directory")
+        db.session.add_all([facility, service, slot, listing])
+        db.session.commit()
+        slot_id = slot.id
+
+    catalog = client.get("/api/services/medical").get_json()["services"]
+    assert len(catalog) == 1
+    assert catalog[0]["slots"][0]["available_places"] == 1
+    booked = client.post("/api/services/appointments", json={"slot_id": slot_id, "reason": "Review recent readings"})
+    assert booked.status_code == 201
+    appointment_id = booked.get_json()["appointment"]["id"]
+    assert client.post("/api/services/appointments", json={"slot_id": slot_id, "reason": "Duplicate click"}).status_code == 409
+
+    reminder = client.post("/api/services/reminders", json={
+        "title": "Check blood pressure",
+        "category": "measurement",
+        "next_due_at": datetime.now(timezone.utc).isoformat(),
+        "schedule_note": "One time",
+    })
+    assert reminder.status_code == 201
+    reminder_id = reminder.get_json()["reminder"]["id"]
+    assert client.patch(f"/api/services/reminders/{reminder_id}/complete").get_json()["reminder"]["status"] == "completed"
+    assert client.get("/api/services/elder-care?category=Day%20support").get_json()["listings"][0]["name"] == "Test Day Centre"
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={
+        "full_name": "Other Care User",
+        "email": "other-care@example.com",
+        "password": "Patient123",
+    })
+    assert client.get("/api/services/appointments").get_json()["appointments"] == []
+    assert client.get("/api/services/reminders").get_json()["reminders"] == []
+    assert client.patch(f"/api/services/appointments/{appointment_id}/cancel").status_code == 404
+    assert client.patch(f"/api/services/reminders/{reminder_id}/complete").status_code == 404
+    assert client.post("/api/services/appointments", json={"slot_id": slot_id, "reason": "Try full slot"}).status_code == 409
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/login", json={"email": "care@example.com", "password": "Patient123"})
+    cancelled = client.patch(f"/api/services/appointments/{appointment_id}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.get_json()["appointment"]["status"] == "cancelled"

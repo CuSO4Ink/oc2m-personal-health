@@ -1,5 +1,5 @@
 import React from 'react'
-import { BellOutlined, DownOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons'
+import { BellOutlined, CalendarOutlined, DownOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons'
 import { Alert, Avatar, Button, Card, Checkbox, Divider, Dropdown, Form, Input, Layout, Menu, Space, Spin, Tag, Typography } from 'antd'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import api, { apiMessage } from './api'
@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './auth'
 import { RecordDetailPage, RecordFormPage, RecordHistoryPage, RecordsPage } from './HealthRecords'
 import HealthInsightsPage from './HealthInsights'
 import SharingPrivacyPage from './SharingPrivacy'
+import CareServicesPage from './CareServices'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -21,7 +22,6 @@ const navItems = [
 ]
 
 const plannedPages = {
-  '/services': ['Care Services', 'Explore medical appointments and elderly care services.'],
   '/community': ['Community', 'A private, optional space for peer support and shared experiences.'],
   '/account': ['Account & Security', 'Manage your profile and sign-in methods.'],
   '/notifications': ['Notifications', 'Review health, appointment, sharing and security updates.'],
@@ -165,6 +165,7 @@ function OverviewPage() {
   const [recentRecords, setRecentRecords] = React.useState([])
   const [latestReadings, setLatestReadings] = React.useState([])
   const [shareNotice, setShareNotice] = React.useState(null)
+  const [careNotice, setCareNotice] = React.useState(null)
   React.useEffect(() => { api.get('/records').then(({ data }) => setRecentRecords(data.records.slice(0, 2))).catch(() => {}) }, [])
   React.useEffect(() => {
     Promise.all(['blood_pressure', 'blood_glucose', 'heart_rate'].map((metric) => api.get('/insights/metrics', { params: { metric, days: 365 } })))
@@ -177,7 +178,14 @@ function OverviewPage() {
       setShareNotice(soon || null)
     }).catch(() => {})
   }, [])
-  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records/new')}>Add Record</Button></div>{shareNotice && <div className="warning-banner"><b>A sharing permission expires soon</b><span>{shareNotice.recipient.full_name}’s access to {shareNotice.records.length} selected records expires on {new Date(shareNotice.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. <Button type="link" onClick={() => navigate('/sharing')}>Review permission</Button></span></div>}<section><Title level={3}>Latest Readings</Title><div className="reading-grid">{latestReadings.map((reading) => <Card key={reading.metric_type} className="reading-card"><Text strong>{reading.label}{reading.context === 'fasting' ? ' · Fasting' : ''}</Text><div className="reading-value">{reading.secondary_value == null ? reading.value : `${reading.value}/${reading.secondary_value}`} <small>{reading.unit}</small></div><Text type="secondary">Recorded on {new Date(reading.measured_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text type="secondary">Source: {reading.source_name}</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid">{recentRecords.map((record) => <Card key={record.id} hoverable onClick={() => navigate(`/records/${record.id}`)}><Tag>{record.record_type}</Tag><Title level={4}>{record.title}</Title><Text type="secondary">Record date: {new Date(`${record.record_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></Card>)}</div></section></div>
+  React.useEffect(() => {
+    Promise.all([api.get('/services/appointments'), api.get('/services/reminders')]).then(([appointmentResponse, reminderResponse]) => {
+      const next = appointmentResponse.data.appointments.find((appointment) => appointment.status === 'confirmed' && new Date(appointment.slot.starts_at) > new Date())
+      const due = reminderResponse.data.reminders.filter((reminder) => reminder.status === 'overdue').length
+      setCareNotice({ next, due })
+    }).catch(() => {})
+  }, [])
+  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records/new')}>Add Record</Button></div>{shareNotice && <div className="warning-banner"><b>A sharing permission expires soon</b><span>{shareNotice.recipient.full_name}’s access to {shareNotice.records.length} selected records expires on {new Date(shareNotice.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. <Button type="link" onClick={() => navigate('/sharing')}>Review permission</Button></span></div>}{careNotice && (careNotice.next || careNotice.due) && <Card className="overview-care-card"><CalendarOutlined /><div><Text strong>{careNotice.next ? `Next appointment: ${careNotice.next.service.name}` : `${careNotice.due} health ${careNotice.due === 1 ? 'task is' : 'tasks are'} due`}</Text><Text>{careNotice.next ? `${new Date(careNotice.next.slot.starts_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · ${careNotice.next.service.facility.name}` : 'Open Care Services to review your reminders.'}</Text></div><Button onClick={() => navigate('/services')}>Open Care Services</Button></Card>}<section><Title level={3}>Latest Readings</Title><div className="reading-grid">{latestReadings.map((reading) => <Card key={reading.metric_type} className="reading-card"><Text strong>{reading.label}{reading.context === 'fasting' ? ' · Fasting' : ''}</Text><div className="reading-value">{reading.secondary_value == null ? reading.value : `${reading.value}/${reading.secondary_value}`} <small>{reading.unit}</small></div><Text type="secondary">Recorded on {new Date(reading.measured_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text type="secondary">Source: {reading.source_name}</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid">{recentRecords.map((record) => <Card key={record.id} hoverable onClick={() => navigate(`/records/${record.id}`)}><Tag>{record.record_type}</Tag><Title level={4}>{record.title}</Title><Text type="secondary">Record date: {new Date(`${record.record_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></Card>)}</div></section></div>
 }
 
 function PlannedPage() {
@@ -187,5 +195,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }
