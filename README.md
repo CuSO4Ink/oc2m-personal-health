@@ -23,7 +23,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-The API runs at `http://127.0.0.1:5000`.
+The API runs at `http://127.0.0.1:5001`. Port 5001 avoids the macOS AirPlay Receiver conflict on port 5000.
 
 ### Frontend
 
