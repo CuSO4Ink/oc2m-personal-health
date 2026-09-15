@@ -2,7 +2,7 @@ from app import create_app
 from app.extensions import db
 from datetime import date, datetime, timedelta
 
-from app.models import AccessEvent, Appointment, AppointmentSlot, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
+from app.models import AccessEvent, Appointment, AppointmentSlot, CommunityCircle, CommunityComment, CommunityLike, CommunityMembership, CommunityPost, CommunityProfile, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
 
 
 DEMO_EMAIL = "alex.morgan@example.com"
@@ -222,5 +222,64 @@ with app.app_context():
     for name, category, address, summary, offered_services, accessibility in elder_rows:
         if not ElderCareListing.query.filter_by(name=name).first():
             db.session.add(ElderCareListing(name=name, category=category, address=address, summary=summary, services=offered_services, accessibility=accessibility, source_name="Demo local care directory", updated_at=demo_now, active=True))
+    circle_rows = [
+        ("Living Well with High Blood Pressure", "Blood pressure", "Share routines, questions to ask at appointments and everyday experiences of monitoring blood pressure."),
+        ("Healthy Ageing Together", "Healthy ageing", "Exchange practical experiences about staying active, connected and independent."),
+        ("Family Carer Support", "Carer wellbeing", "A peer space for family carers to discuss routines, respite and looking after their own wellbeing."),
+    ]
+    circles = []
+    for name, topic, description in circle_rows:
+        circle = CommunityCircle.query.filter_by(name=name).first()
+        if not circle:
+            circle = CommunityCircle(name=name, topic=topic, description=description)
+            db.session.add(circle)
+        circles.append(circle)
+    db.session.flush()
+    profile = db.session.get(CommunityProfile, user.id)
+    if not profile:
+        profile = CommunityProfile(user_id=user.id, enabled=True, joined_at=demo_now, updated_at=demo_now)
+        db.session.add(profile)
+    else:
+        profile.enabled = True
+        profile.joined_at = profile.joined_at or demo_now
+        profile.updated_at = demo_now
+    for circle in circles[:2]:
+        membership = CommunityMembership.query.filter_by(user_id=user.id, circle_id=circle.id).first()
+        if not membership:
+            db.session.add(CommunityMembership(user_id=user.id, circle_id=circle.id, joined_at=demo_now))
+        elif membership.left_at:
+            membership.left_at = None
+    peer_rows = [
+        ("community.peer.one@example.test", "Jamie Reed"),
+        ("community.peer.two@example.test", "Morgan Hill"),
+    ]
+    peers = []
+    for email, full_name in peer_rows:
+        peer = User.query.filter_by(email=email).first()
+        if not peer:
+            peer = User(email=email, full_name=full_name, role="patient")
+            peer.set_password("CommunityDemo2026!")
+            db.session.add(peer)
+        peers.append(peer)
+    db.session.flush()
+    for peer in peers:
+        if not db.session.get(CommunityProfile, peer.id):
+            db.session.add(CommunityProfile(user_id=peer.id, enabled=True, joined_at=demo_now, updated_at=demo_now))
+        for circle in circles[:2]:
+            if not CommunityMembership.query.filter_by(user_id=peer.id, circle_id=circle.id).first():
+                db.session.add(CommunityMembership(user_id=peer.id, circle_id=circle.id, joined_at=demo_now))
+    db.session.flush()
+    if not CommunityPost.query.first():
+        posts = [
+            CommunityPost(circle_id=circles[0].id, user_id=peers[0].id, body="Keeping a short note beside my monitor helped me remember whether I had rested before each reading. I now bring the notes to appointments so I can explain the context.", anonymous=True, created_at=demo_now - timedelta(hours=5)),
+            CommunityPost(circle_id=circles[1].id, user_id=peers[1].id, body="I started with a ten-minute walk at the same time each afternoon. Having a small, repeatable routine made it easier for me to stay active.", anonymous=False, created_at=demo_now - timedelta(days=1)),
+            CommunityPost(circle_id=circles[0].id, user_id=user.id, body="I have been recording home readings twice a week and writing down anything unusual about the day. It makes my follow-up conversations much clearer.", anonymous=True, created_at=demo_now - timedelta(days=2)),
+        ]
+        db.session.add_all(posts)
+        db.session.flush()
+        db.session.add_all([
+            CommunityLike(user_id=user.id, post_id=posts[0].id),
+            CommunityComment(post_id=posts[0].id, user_id=peers[1].id, body="The context note helped me too, especially when my routine changed.", anonymous=True),
+        ])
     db.session.commit()
     print(f"Demo account ready: {DEMO_EMAIL}")

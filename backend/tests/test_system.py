@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app import create_app
 from app.extensions import db
-from app.models import AccessEvent, AppointmentSlot, ElderCareListing, HealthRecord, MedicalService, ServiceFacility, ShareRecipient, User
+from app.models import AccessEvent, AppointmentSlot, CommunityCircle, CommunityMembership, CommunityPost, ElderCareListing, HealthRecord, MedicalService, ServiceFacility, ShareRecipient, User
 
 
 def test_health_check():
@@ -312,3 +312,71 @@ def test_care_booking_reminders_catalog_and_ownership():
     cancelled = client.patch(f"/api/services/appointments/{appointment_id}/cancel")
     assert cancelled.status_code == 200
     assert cancelled.get_json()["appointment"]["status"] == "cancelled"
+
+
+def test_optional_community_membership_interactions_reporting_and_isolation():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Community Owner",
+        "email": "community-owner@example.com",
+        "password": "Patient123",
+    })
+    with app.app_context():
+        circle = CommunityCircle(name="Test Circle", topic="Peer support", description="A test peer-support circle.")
+        db.session.add(circle)
+        db.session.commit()
+        circle_id = circle.id
+
+    initial = client.get("/api/community").get_json()
+    assert initial["profile"]["enabled"] is False
+    assert initial["posts"] == []
+    assert initial["safety"]["health_records_connected"] is False
+    assert client.post(f"/api/community/circles/{circle_id}/membership").status_code == 403
+
+    assert client.patch("/api/community/profile", json={"enabled": True}).status_code == 200
+    joined = client.post(f"/api/community/circles/{circle_id}/membership")
+    assert joined.status_code == 201
+    assert joined.get_json()["circle"]["joined"] is True
+    rejected = client.post("/api/community/posts", json={
+        "circle_id": circle_id,
+        "body": "My personal experience",
+        "anonymous": True,
+    })
+    assert rejected.status_code == 400
+    created = client.post("/api/community/posts", json={
+        "circle_id": circle_id,
+        "body": "My personal experience was that a consistent routine helped.",
+        "anonymous": True,
+        "acknowledged": True,
+    })
+    assert created.status_code == 201
+    post = created.get_json()["post"]
+    assert post["author_name"] == "Anonymous member"
+    assert post["is_owner"] is True
+    liked = client.post(f"/api/community/posts/{post['id']}/like").get_json()["post"]
+    assert liked["liked"] is True and liked["like_count"] == 1
+    commented = client.post(f"/api/community/posts/{post['id']}/comments", json={
+        "body": "Thank you for sharing this.",
+        "anonymous": True,
+    })
+    assert commented.status_code == 201
+    assert commented.get_json()["post"]["comment_count"] == 1
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={
+        "full_name": "Other Community User",
+        "email": "other-community@example.com",
+        "password": "Patient123",
+    })
+    assert client.get("/api/community").get_json()["posts"] == []
+    client.patch("/api/community/profile", json={"enabled": True})
+    client.post(f"/api/community/circles/{circle_id}/membership")
+    assert len(client.get("/api/community/posts").get_json()["posts"]) == 1
+    assert client.delete(f"/api/community/posts/{post['id']}").status_code == 404
+    report = client.post(f"/api/community/posts/{post['id']}/reports", json={"reason": "medical_advice", "details": "Please review."})
+    assert report.status_code == 201
+    assert report.get_json()["report"]["status"] == "submitted"
+    assert client.post(f"/api/community/posts/{post['id']}/reports", json={"reason": "medical_advice"}).status_code == 409
+    assert client.delete(f"/api/community/circles/{circle_id}/membership").status_code == 200
+    assert client.post(f"/api/community/posts/{post['id']}/like").status_code == 404

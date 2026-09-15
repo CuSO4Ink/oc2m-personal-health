@@ -462,3 +462,144 @@ class ElderCareListing(db.Model):
             "source_name": self.source_name,
             "updated_at": self.updated_at.isoformat() + "Z",
         }
+
+
+class CommunityProfile(db.Model):
+    __tablename__ = "community_profiles"
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    enabled = db.Column(db.Boolean, nullable=False, default=False)
+    joined_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship("User", backref=db.backref("community_profile", uselist=False, cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "enabled": self.enabled,
+            "joined_at": self.joined_at.isoformat() + "Z" if self.joined_at else None,
+            "updated_at": self.updated_at.isoformat() + "Z",
+        }
+
+
+class CommunityCircle(db.Model):
+    __tablename__ = "community_circles"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    topic = db.Column(db.String(80), nullable=False, index=True)
+    description = db.Column(db.String(400), nullable=False)
+    guidance = db.Column(db.String(240), nullable=False, default="Share personal experience and seek professional care for medical advice.")
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    def to_dict(self, user_id=None):
+        memberships = [membership for membership in self.memberships if membership.left_at is None]
+        return {
+            "id": self.id,
+            "name": self.name,
+            "topic": self.topic,
+            "description": self.description,
+            "guidance": self.guidance,
+            "member_count": len(memberships),
+            "joined": any(membership.user_id == user_id for membership in memberships) if user_id else False,
+        }
+
+
+class CommunityMembership(db.Model):
+    __tablename__ = "community_memberships"
+    __table_args__ = (db.UniqueConstraint("user_id", "circle_id", name="uq_community_membership"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    circle_id = db.Column(db.Integer, db.ForeignKey("community_circles.id", ondelete="CASCADE"), nullable=False, index=True)
+    joined_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    left_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", backref=db.backref("community_memberships", cascade="all, delete-orphan"))
+    circle = db.relationship("CommunityCircle", backref=db.backref("memberships", cascade="all, delete-orphan"))
+
+
+class CommunityPost(db.Model):
+    __tablename__ = "community_posts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    circle_id = db.Column(db.Integer, db.ForeignKey("community_circles.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    body = db.Column(db.String(1200), nullable=False)
+    anonymous = db.Column(db.Boolean, nullable=False, default=True)
+    status = db.Column(db.String(30), nullable=False, default="published", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+
+    user = db.relationship("User", backref=db.backref("community_posts", cascade="all, delete-orphan"))
+    circle = db.relationship("CommunityCircle", backref=db.backref("posts", cascade="all, delete-orphan"))
+
+    def to_dict(self, viewer_id=None):
+        active_comments = [comment for comment in self.comments if comment.status == "published"]
+        return {
+            "id": self.id,
+            "circle": {"id": self.circle.id, "name": self.circle.name, "topic": self.circle.topic},
+            "body": self.body,
+            "anonymous": self.anonymous,
+            "author_name": "Anonymous member" if self.anonymous else self.user.full_name,
+            "is_owner": self.user_id == viewer_id,
+            "liked": any(like.user_id == viewer_id for like in self.likes),
+            "like_count": len(self.likes),
+            "comment_count": len(active_comments),
+            "comments": [comment.to_dict(viewer_id) for comment in active_comments],
+            "created_at": self.created_at.isoformat() + "Z",
+        }
+
+
+class CommunityLike(db.Model):
+    __tablename__ = "community_likes"
+    __table_args__ = (db.UniqueConstraint("user_id", "post_id", name="uq_community_like"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship("User")
+    post = db.relationship("CommunityPost", backref=db.backref("likes", cascade="all, delete-orphan"))
+
+
+class CommunityComment(db.Model):
+    __tablename__ = "community_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    body = db.Column(db.String(500), nullable=False)
+    anonymous = db.Column(db.Boolean, nullable=False, default=True)
+    status = db.Column(db.String(30), nullable=False, default="published", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship("User")
+    post = db.relationship("CommunityPost", backref=db.backref("comments", cascade="all, delete-orphan", order_by="CommunityComment.created_at.asc()"))
+
+    def to_dict(self, viewer_id=None):
+        return {
+            "id": self.id,
+            "body": self.body,
+            "anonymous": self.anonymous,
+            "author_name": "Anonymous member" if self.anonymous else self.user.full_name,
+            "is_owner": self.user_id == viewer_id,
+            "created_at": self.created_at.isoformat() + "Z",
+        }
+
+
+class CommunityReport(db.Model):
+    __tablename__ = "community_reports"
+    __table_args__ = (db.UniqueConstraint("reporter_id", "post_id", name="uq_community_report"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    reporter_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    reason = db.Column(db.String(60), nullable=False)
+    details = db.Column(db.String(500), nullable=False, default="")
+    status = db.Column(db.String(30), nullable=False, default="submitted", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    reporter = db.relationship("User")
+    post = db.relationship("CommunityPost", backref=db.backref("reports", cascade="all, delete-orphan"))

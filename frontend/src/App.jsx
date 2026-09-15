@@ -8,6 +8,7 @@ import { RecordDetailPage, RecordFormPage, RecordHistoryPage, RecordsPage } from
 import HealthInsightsPage from './HealthInsights'
 import SharingPrivacyPage from './SharingPrivacy'
 import CareServicesPage from './CareServices'
+import CommunityPage from './Community'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -22,7 +23,6 @@ const navItems = [
 ]
 
 const plannedPages = {
-  '/community': ['Community', 'A private, optional space for peer support and shared experiences.'],
   '/account': ['Account & Security', 'Manage your profile and sign-in methods.'],
   '/notifications': ['Notifications', 'Review health, appointment, sharing and security updates.'],
 }
@@ -195,5 +195,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }

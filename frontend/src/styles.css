@@ -176,6 +176,43 @@ button, input, textarea { font: inherit; }
 .elder-card .ant-btn { margin-top: auto; }
 .directory-note { margin-top: 18px; }
 
+.community-page { gap: 22px; }
+.community-onboarding { text-align: center; }
+.community-onboarding .ant-card-body { min-height: 460px; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.community-onboarding h2.ant-typography { margin: 4px 0 0; }
+.community-onboarding p { max-width: 620px; font-size: 16px; line-height: 1.7; }
+.onboarding-icon { width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; background: #e5f2f0; color: #397f78; font-size: 30px; }
+.privacy-points { display: flex; justify-content: center; gap: 12px 24px; flex-wrap: wrap; margin: 4px 0 12px; color: #516074; }
+.privacy-points span { display: flex; align-items: center; gap: 7px; }
+.community-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.community-summary .ant-card-body { min-height: 116px; display: flex; align-items: center; }
+.community-summary .ant-statistic-content-prefix { color: #397f78; margin-right: 10px; }
+.community-panel { display: grid; gap: 22px; }
+.community-feed { display: grid; gap: 16px; }
+.community-post .ant-card-body { padding: 22px; }
+.post-author { display: flex; gap: 12px; align-items: center; }
+.post-author > div { display: grid; gap: 4px; }
+.post-body { margin: 20px 0 16px !important; white-space: pre-wrap; font-size: 16px; line-height: 1.7; }
+.peer-content-note { margin-bottom: 12px; }
+.post-actions { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; border-top: 1px solid #edf0f3; }
+.post-actions .liked { color: #d34c4c; }
+.comment-list { margin-top: 8px; padding: 4px 14px; border-radius: 8px; background: #f7f9fa; }
+.comment-list .ant-list-item { padding-block: 12px; }
+.comment-form { margin-top: 14px; padding: 15px; border-radius: 8px; background: #f7f9fa; }
+.comment-controls { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.circle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.circle-card .ant-card-body { min-height: 350px; display: flex; flex-direction: column; align-items: flex-start; }
+.circle-card h4.ant-typography { margin: 15px 0 8px; }
+.circle-meta { display: grid; gap: 7px; margin: 8px 0 14px; color: #667085; }
+.circle-meta span { display: flex; gap: 7px; align-items: center; }
+.circle-card > .ant-card-body > .ant-typography-secondary { margin-bottom: 20px; }
+.circle-card .ant-btn { margin-top: auto; }
+.guideline-list { display: grid; gap: 18px; }
+.guideline-list > div { display: grid; grid-template-columns: 32px 1fr; gap: 12px; }
+.guideline-list > div > .anticon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #397f78; background: #e5f2f0; }
+.guideline-list p { margin: 4px 0 0; }
+.community-form { margin-top: 20px; }
+
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
   .login-intro { min-height: 300px; padding: 42px 8%; }
@@ -188,6 +225,7 @@ button, input, textarea { font: inherit; }
   .insight-lower-grid { grid-template-columns: 1fr; }
   .grant-card .ant-card-body { align-items: flex-start; flex-direction: column; }
   .medical-service-grid, .elder-grid { grid-template-columns: 1fr; }
+  .circle-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
@@ -211,5 +249,7 @@ button, input, textarea { font: inherit; }
   .activity-filters { flex-direction: column; }
   .overview-care-card .ant-card-body, .appointment-card .ant-card-body { grid-template-columns: 1fr; }
   .care-summary, .reminder-stats, .slot-grid { grid-template-columns: 1fr; }
+  .community-summary { grid-template-columns: 1fr; }
+  .comment-controls { align-items: flex-start; flex-direction: column; }
   .appointment-date { display: none; }
 }

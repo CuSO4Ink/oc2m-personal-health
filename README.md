@@ -64,5 +64,8 @@ The account contains sample data only. The password-reset page displays its gene
 - Personal health reminders with due-state tracking and completion
 - Searchable elder-care information directory with source and update provenance
 - Care appointment and task summaries on the health overview
+- Optional Community profile with explicit on/off control
+- Peer-circle membership, anonymous experience posts, likes and comments
+- Community reporting workflow with health-record isolation and safety guidance
 
-Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling and live elder-care booking are planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages and the moderator workbench are planned for a later phase.

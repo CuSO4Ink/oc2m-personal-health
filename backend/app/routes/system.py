@@ -19,7 +19,7 @@ def modules():
                 {"key": "insights", "name": "Health Insights", "status": "implemented"},
                 {"key": "sharing", "name": "Sharing & Privacy", "status": "implemented"},
                 {"key": "services", "name": "Care Services", "status": "implemented"},
-                {"key": "community", "name": "Community", "status": "optional"},
+                {"key": "community", "name": "Community", "status": "implemented"},
             ]
         }
     )
