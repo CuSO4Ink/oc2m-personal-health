@@ -20,6 +20,7 @@ def modules():
                 {"key": "sharing", "name": "Sharing & Privacy", "status": "implemented"},
                 {"key": "services", "name": "Care Services", "status": "implemented"},
                 {"key": "community", "name": "Community", "status": "implemented"},
+                {"key": "notifications", "name": "Notifications", "status": "implemented"},
             ]
         }
     )

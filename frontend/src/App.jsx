@@ -1,6 +1,6 @@
 import React from 'react'
 import { BellOutlined, CalendarOutlined, DownOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons'
-import { Alert, Avatar, Button, Card, Checkbox, Divider, Dropdown, Form, Input, Layout, Menu, Space, Spin, Tag, Typography } from 'antd'
+import { Alert, Avatar, Badge, Button, Card, Checkbox, Divider, Dropdown, Form, Input, Layout, Menu, Space, Spin, Tag, Typography } from 'antd'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import api, { apiMessage } from './api'
 import { AuthProvider, useAuth } from './auth'
@@ -9,6 +9,7 @@ import HealthInsightsPage from './HealthInsights'
 import SharingPrivacyPage from './SharingPrivacy'
 import CareServicesPage from './CareServices'
 import CommunityPage from './Community'
+import NotificationsPage from './Notifications'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -24,7 +25,6 @@ const navItems = [
 
 const plannedPages = {
   '/account': ['Account & Security', 'Manage your profile and sign-in methods.'],
-  '/notifications': ['Notifications', 'Review health, appointment, sharing and security updates.'],
 }
 
 function Brand() {
@@ -151,11 +151,20 @@ function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
-  const pageTitle = location.pathname.startsWith('/records') ? 'Health Records' : navItems.find((item) => item.key === location.pathname)?.label || plannedPages[location.pathname]?.[0] || 'Overview'
+  const [unreadNotifications, setUnreadNotifications] = React.useState(0)
+  const pageTitle = location.pathname.startsWith('/records') ? 'Health Records' : navItems.find((item) => item.key === location.pathname)?.label || plannedPages[location.pathname]?.[0] || (location.pathname === '/notifications' ? 'Notifications' : 'Overview')
   async function signOut() { await logout(); navigate('/login', { replace: true }) }
   const accountMenu = { items: [{ key: 'account', label: 'Account & Security', onClick: () => navigate('/account') }, { type: 'divider' }, { key: 'logout', label: 'Sign out', danger: true, onClick: signOut }] }
 
-  return <Layout className="app-shell"><Sider width={260} theme="light" className="app-sider"><Brand /><Menu mode="inline" selectedKeys={[location.pathname]} items={navItems} onClick={({ key }) => navigate(key)} /></Sider><Layout><Header className="app-header"><Text>{pageTitle}</Text><Space size="large"><Button aria-label="Open notifications" type="text" shape="circle" icon={<BellOutlined />} onClick={() => navigate('/notifications')} /><Dropdown menu={accountMenu} trigger={['click']}><button className="profile-button"><Avatar>{user.initials}</Avatar><span>{user.full_name}</span><DownOutlined /></button></Dropdown></Space></Header><Content className="app-content"><Outlet /></Content></Layout></Layout>
+  React.useEffect(() => {
+    let active = true
+    const refresh = () => api.get('/notifications/summary').then(({ data }) => { if (active) setUnreadNotifications(data.summary.unread) }).catch(() => {})
+    refresh()
+    window.addEventListener('notifications:changed', refresh)
+    return () => { active = false; window.removeEventListener('notifications:changed', refresh) }
+  }, [location.pathname])
+
+  return <Layout className="app-shell"><Sider width={260} theme="light" className="app-sider"><Brand /><Menu mode="inline" selectedKeys={[location.pathname]} items={navItems} onClick={({ key }) => navigate(key)} /></Sider><Layout><Header className="app-header"><Text>{pageTitle}</Text><Space size="large"><Badge count={unreadNotifications} size="small" overflowCount={99}><Button aria-label={`Open notifications, ${unreadNotifications} unread`} type="text" shape="circle" icon={<BellOutlined />} onClick={() => navigate('/notifications')} /></Badge><Dropdown menu={accountMenu} trigger={['click']}><button className="profile-button"><Avatar>{user.initials}</Avatar><span>{user.full_name}</span><DownOutlined /></button></Dropdown></Space></Header><Content className="app-content"><Outlet /></Content></Layout></Layout>
 }
 
 function OverviewPage() {
@@ -195,5 +204,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} /><Route path="/notifications" element={<NotificationsPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }

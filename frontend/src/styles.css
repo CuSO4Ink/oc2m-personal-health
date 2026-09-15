@@ -213,6 +213,21 @@ button, input, textarea { font: inherit; }
 .guideline-list p { margin: 4px 0 0; }
 .community-form { margin-top: 20px; }
 
+.notifications-page { gap: 22px; }
+.notification-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.notification-summary .ant-card-body { min-height: 116px; display: flex; align-items: center; }
+.notification-summary .ant-statistic-content-prefix { color: #397f78; margin-right: 10px; }
+.notification-filter-card .ant-card-body { padding: 18px; }
+.notification-filters { display: grid; grid-template-columns: minmax(260px, 1.8fr) minmax(140px, .7fr) minmax(150px, .8fr) auto auto; gap: 12px; }
+.notification-list { border: 1px solid #e6eaee; border-radius: 10px; overflow: hidden; }
+.notification-list .ant-list-item { padding: 20px 22px; transition: background .2s ease; }
+.notification-list .ant-list-item.unread { background: #f3faf9; box-shadow: inset 3px 0 #397f78; }
+.notification-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #397f78; background: #e5f2f0; font-size: 19px; }
+.notification-icon.warning { color: #a16207; background: #fff7dc; }
+.notification-icon.urgent { color: #c83d38; background: #fff1f0; }
+.notification-detail { display: grid; gap: 7px; margin-top: 6px; }
+.notification-detail > span { color: #748092; font-size: 13px; }
+
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
   .login-intro { min-height: 300px; padding: 42px 8%; }
@@ -226,6 +241,8 @@ button, input, textarea { font: inherit; }
   .grant-card .ant-card-body { align-items: flex-start; flex-direction: column; }
   .medical-service-grid, .elder-grid { grid-template-columns: 1fr; }
   .circle-grid { grid-template-columns: 1fr; }
+  .notification-filters { grid-template-columns: 1fr 1fr; }
+  .notification-filters > :first-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 600px) {
@@ -250,6 +267,8 @@ button, input, textarea { font: inherit; }
   .overview-care-card .ant-card-body, .appointment-card .ant-card-body { grid-template-columns: 1fr; }
   .care-summary, .reminder-stats, .slot-grid { grid-template-columns: 1fr; }
   .community-summary { grid-template-columns: 1fr; }
+  .notification-summary, .notification-filters { grid-template-columns: 1fr; }
+  .notification-filters > :first-child { grid-column: 1; }
   .comment-controls { align-items: flex-start; flex-direction: column; }
   .appointment-date { display: none; }
 }

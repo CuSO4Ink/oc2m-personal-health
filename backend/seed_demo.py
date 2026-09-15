@@ -281,5 +281,8 @@ with app.app_context():
             CommunityLike(user_id=user.id, post_id=posts[0].id),
             CommunityComment(post_id=posts[0].id, user_id=peers[1].id, body="The context note helped me too, especially when my routine changed.", anonymous=True),
         ])
+    own_post = CommunityPost.query.filter_by(user_id=user.id, status="published").first()
+    if own_post and not CommunityComment.query.filter_by(post_id=own_post.id, user_id=peers[0].id).first():
+        db.session.add(CommunityComment(post_id=own_post.id, user_id=peers[0].id, body="Writing down the context sounds useful. Thank you for sharing your experience.", anonymous=True, created_at=demo_now - timedelta(hours=23)))
     db.session.commit()
     print(f"Demo account ready: {DEMO_EMAIL}")

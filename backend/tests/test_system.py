@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app import create_app
 from app.extensions import db
-from app.models import AccessEvent, AppointmentSlot, CommunityCircle, CommunityMembership, CommunityPost, ElderCareListing, HealthRecord, MedicalService, ServiceFacility, ShareRecipient, User
+from app.models import AccessEvent, AppointmentSlot, CommunityCircle, CommunityMembership, CommunityPost, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, MedicalService, Notification, ServiceFacility, ShareRecipient, User
 
 
 def test_health_check():
@@ -380,3 +380,76 @@ def test_optional_community_membership_interactions_reporting_and_isolation():
     assert client.post(f"/api/community/posts/{post['id']}/reports", json={"reason": "medical_advice"}).status_code == 409
     assert client.delete(f"/api/community/circles/{circle_id}/membership").status_code == 200
     assert client.post(f"/api/community/posts/{post['id']}/like").status_code == 404
+
+
+def test_notification_sync_filters_read_state_archive_and_ownership():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Notification Owner",
+        "email": "notifications@example.com",
+        "password": "Patient123",
+    })
+    with app.app_context():
+        owner = User.query.filter_by(email="notifications@example.com").first()
+        measurement = HealthMeasurement(
+            user_id=owner.id,
+            metric_type="blood_pressure",
+            value=150,
+            secondary_value=95,
+            unit="mmHg",
+            measured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            source_type="self",
+            source_name="Test monitor",
+        )
+        alert = HealthAlert(
+            user_id=owner.id,
+            measurement=measurement,
+            severity="high",
+            title="Test health alert",
+            message="A test reading needs attention.",
+            rule_name="test_rule",
+            rule_version="1.0",
+        )
+        notification = Notification(
+            user_id=owner.id,
+            category="system",
+            severity="info",
+            title="Welcome notification",
+            message="Your notification centre is ready.",
+            action_path="/overview",
+            dedupe_key="test-welcome",
+            source_name="Test system",
+        )
+        db.session.add_all([measurement, alert, notification])
+        db.session.commit()
+        direct_id = notification.id
+
+    listed = client.get("/api/notifications").get_json()
+    assert listed["summary"]["unread"] == 2
+    assert listed["summary"]["unread_by_category"]["health"] == 1
+    assert len(client.get("/api/notifications?category=health&status=unread&q=attention").get_json()["notifications"]) == 1
+
+    read = client.patch(f"/api/notifications/{direct_id}/read", json={"read": True})
+    assert read.status_code == 200
+    assert read.get_json()["notification"]["unread"] is False
+    assert read.get_json()["summary"]["unread"] == 1
+    assert client.patch(f"/api/notifications/{direct_id}/read", json={"read": "yes"}).status_code == 400
+    assert client.patch(f"/api/notifications/{direct_id}/read", json={"read": False}).get_json()["notification"]["unread"] is True
+    assert client.post("/api/notifications/read-all", json={"category": "all"}).get_json()["summary"]["unread"] == 0
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={
+        "full_name": "Other Notification User",
+        "email": "other-notifications@example.com",
+        "password": "Patient123",
+    })
+    assert client.get("/api/notifications").get_json()["summary"]["total"] == 0
+    assert client.patch(f"/api/notifications/{direct_id}/read", json={"read": True}).status_code == 404
+    assert client.delete(f"/api/notifications/{direct_id}").status_code == 404
+
+    client.post("/api/auth/logout")
+    client.post("/api/auth/login", json={"email": "notifications@example.com", "password": "Patient123"})
+    cleared = client.delete(f"/api/notifications/{direct_id}")
+    assert cleared.status_code == 200
+    assert cleared.get_json()["summary"]["total"] == 1

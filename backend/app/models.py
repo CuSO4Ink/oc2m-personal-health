@@ -603,3 +603,37 @@ class CommunityReport(db.Model):
 
     reporter = db.relationship("User")
     post = db.relationship("CommunityPost", backref=db.backref("reports", cascade="all, delete-orphan"))
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+    __table_args__ = (db.UniqueConstraint("user_id", "dedupe_key", name="uq_user_notification_key"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    category = db.Column(db.String(30), nullable=False, index=True)
+    severity = db.Column(db.String(20), nullable=False, default="info", index=True)
+    title = db.Column(db.String(180), nullable=False)
+    message = db.Column(db.String(500), nullable=False)
+    action_path = db.Column(db.String(160), nullable=False, default="")
+    dedupe_key = db.Column(db.String(120), nullable=False)
+    source_name = db.Column(db.String(140), nullable=False, default="Personal Health")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+    read_at = db.Column(db.DateTime, index=True)
+    archived_at = db.Column(db.DateTime, index=True)
+
+    user = db.relationship("User", backref=db.backref("notifications", cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "category": self.category,
+            "severity": self.severity,
+            "title": self.title,
+            "message": self.message,
+            "action_path": self.action_path,
+            "source_name": self.source_name,
+            "created_at": self.created_at.isoformat() + "Z",
+            "read_at": self.read_at.isoformat() + "Z" if self.read_at else None,
+            "unread": self.read_at is None,
+        }
