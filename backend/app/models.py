@@ -637,3 +637,85 @@ class Notification(db.Model):
             "read_at": self.read_at.isoformat() + "Z" if self.read_at else None,
             "unread": self.read_at is None,
         }
+
+
+class AccountProfile(db.Model):
+    __tablename__ = "account_profiles"
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    phone = db.Column(db.String(40), nullable=False, default="")
+    date_of_birth = db.Column(db.Date)
+    preferred_language = db.Column(db.String(40), nullable=False, default="English")
+    password_changed_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    user = db.relationship("User", backref=db.backref("account_profile", uselist=False, cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "phone": self.phone,
+            "date_of_birth": self.date_of_birth.isoformat() if self.date_of_birth else None,
+            "preferred_language": self.preferred_language,
+            "password_changed_at": self.password_changed_at.isoformat() + "Z" if self.password_changed_at else None,
+            "updated_at": self.updated_at.isoformat() + "Z",
+        }
+
+
+class AccountSession(db.Model):
+    __tablename__ = "account_sessions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    device_name = db.Column(db.String(120), nullable=False)
+    ip_address = db.Column(db.String(80), nullable=False, default="Unavailable")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    revoked_at = db.Column(db.DateTime, index=True)
+
+    user = db.relationship("User", backref=db.backref("account_sessions", cascade="all, delete-orphan"))
+
+    @property
+    def active(self):
+        return self.revoked_at is None and self.expires_at > utc_now()
+
+    def to_dict(self, current_token=None):
+        return {
+            "id": self.id,
+            "device_name": self.device_name,
+            "ip_address": self.ip_address,
+            "created_at": self.created_at.isoformat() + "Z",
+            "last_seen_at": self.last_seen_at.isoformat() + "Z",
+            "expires_at": self.expires_at.isoformat() + "Z",
+            "active": self.active,
+            "current": self.token == current_token,
+        }
+
+
+class SecurityEvent(db.Model):
+    __tablename__ = "security_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = db.Column(db.String(50), nullable=False, index=True)
+    description = db.Column(db.String(300), nullable=False)
+    result = db.Column(db.String(30), nullable=False, default="success", index=True)
+    ip_address = db.Column(db.String(80), nullable=False, default="Unavailable")
+    device_name = db.Column(db.String(120), nullable=False, default="Unknown device")
+    important = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+
+    user = db.relationship("User", backref=db.backref("security_events", cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "event_type": self.event_type,
+            "description": self.description,
+            "result": self.result,
+            "ip_address": self.ip_address,
+            "device_name": self.device_name,
+            "important": self.important,
+            "created_at": self.created_at.isoformat() + "Z",
+        }

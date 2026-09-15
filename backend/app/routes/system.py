@@ -21,6 +21,7 @@ def modules():
                 {"key": "services", "name": "Care Services", "status": "implemented"},
                 {"key": "community", "name": "Community", "status": "implemented"},
                 {"key": "notifications", "name": "Notifications", "status": "implemented"},
+                {"key": "account", "name": "Account & Security", "status": "implemented"},
             ]
         }
     )

@@ -453,3 +453,57 @@ def test_notification_sync_filters_read_state_archive_and_ownership():
     cleared = client.delete(f"/api/notifications/{direct_id}")
     assert cleared.status_code == 200
     assert cleared.get_json()["summary"]["total"] == 1
+
+
+def test_account_profile_sensitive_changes_sessions_and_security_activity():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    second_device = app.test_client()
+    client.post("/api/auth/register", json={
+        "full_name": "Account Owner",
+        "email": "account@example.com",
+        "password": "Patient123",
+    })
+
+    initial = client.get("/api/account").get_json()
+    assert initial["profile_completeness"] == 50
+    assert initial["sign_in_methods"][0]["status"] == "active"
+    assert initial["sign_in_methods"][1]["status"] == "planned"
+    updated = client.patch("/api/account/profile", json={
+        "full_name": "Account Owner Updated",
+        "phone": "+44 7700 900999",
+        "date_of_birth": "1980-05-10",
+        "preferred_language": "简体中文",
+    })
+    assert updated.status_code == 200
+    assert updated.get_json()["profile_completeness"] == 100
+    assert updated.get_json()["profile"]["preferred_language"] == "简体中文"
+
+    assert client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "wrong"}).status_code == 403
+    changed_email = client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "Patient123"})
+    assert changed_email.status_code == 200
+    assert changed_email.get_json()["user"]["email"] == "changed@example.com"
+
+    assert second_device.post("/api/auth/login", json={"email": "changed@example.com", "password": "Patient123"}).status_code == 200
+    sessions_before = client.get("/api/account/sessions").get_json()["sessions"]
+    assert len(sessions_before) == 2
+    current_session_id = next(item["id"] for item in sessions_before if item["current"])
+    other_session_id = next(item["id"] for item in sessions_before if not item["current"])
+    assert client.delete(f"/api/account/sessions/{current_session_id}").status_code == 400
+
+    assert client.post("/api/account/change-password", json={"current_password": "wrong", "new_password": "Updated456"}).status_code == 403
+    assert client.post("/api/account/change-password", json={"current_password": "Patient123", "new_password": "short"}).status_code == 400
+    changed_password = client.post("/api/account/change-password", json={"current_password": "Patient123", "new_password": "Updated456"})
+    assert changed_password.status_code == 200
+    assert len(client.get("/api/account/sessions").get_json()["sessions"]) == 1
+    assert second_device.get("/api/account").status_code == 401
+    assert client.delete(f"/api/account/sessions/{other_session_id}").status_code == 404
+
+    events = client.get("/api/account/security-events").get_json()["events"]
+    event_types = {event["event_type"] for event in events}
+    assert {"account_created", "profile_updated", "email_change_failed", "email_changed", "password_change_failed", "password_changed"}.issubset(event_types)
+    assert any(event["important"] for event in events)
+
+    client.post("/api/auth/logout")
+    assert client.post("/api/auth/login", json={"email": "changed@example.com", "password": "Patient123"}).status_code == 401
+    assert client.post("/api/auth/login", json={"email": "changed@example.com", "password": "Updated456"}).status_code == 200

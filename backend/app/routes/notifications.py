@@ -15,6 +15,7 @@ from ..models import (
     HealthAlert,
     HealthReminder,
     Notification,
+    SecurityEvent,
     ShareGrant,
     utc_now,
 )
@@ -87,6 +88,18 @@ def sync_current_notifications():
             action_path="/sharing",
             source_name="Sharing & Privacy",
             created_at=event.occurred_at,
+        )
+    security_events = SecurityEvent.query.filter_by(user_id=current_user.id, important=True).all()
+    for event in security_events:
+        ensure_notification(
+            f"account-security-event-{event.id}",
+            category="security",
+            severity="urgent" if event.result == "blocked" else "warning",
+            title="Account security activity",
+            message=event.description,
+            action_path="/account",
+            source_name="Account & Security",
+            created_at=event.created_at,
         )
     expiring_grants = ShareGrant.query.filter(
         ShareGrant.user_id == current_user.id,

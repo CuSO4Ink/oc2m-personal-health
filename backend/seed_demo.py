@@ -2,7 +2,7 @@ from app import create_app
 from app.extensions import db
 from datetime import date, datetime, timedelta
 
-from app.models import AccessEvent, Appointment, AppointmentSlot, CommunityCircle, CommunityComment, CommunityLike, CommunityMembership, CommunityPost, CommunityProfile, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
+from app.models import AccessEvent, AccountProfile, Appointment, AppointmentSlot, CommunityCircle, CommunityComment, CommunityLike, CommunityMembership, CommunityPost, CommunityProfile, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
 
 
 DEMO_EMAIL = "alex.morgan@example.com"
@@ -17,6 +17,9 @@ with app.app_context():
         db.session.add(user)
     user.set_password(DEMO_PASSWORD)
     db.session.flush()
+    account_profile = db.session.get(AccountProfile, user.id)
+    if not account_profile:
+        db.session.add(AccountProfile(user_id=user.id, phone="+44 7700 900123", date_of_birth=date(1984, 6, 18), preferred_language="English"))
     if not HealthRecord.query.filter_by(user_id=user.id).first():
         demo_records = [
             HealthRecord(

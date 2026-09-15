@@ -228,6 +228,32 @@ button, input, textarea { font: inherit; }
 .notification-detail { display: grid; gap: 7px; margin-top: 6px; }
 .notification-detail > span { color: #748092; font-size: 13px; }
 
+.account-page { gap: 22px; }
+.account-summary { display: grid; grid-template-columns: 1.5fr .75fr .75fr; gap: 16px; }
+.account-summary .ant-card-body { min-height: 132px; display: flex; align-items: center; }
+.account-summary .ant-statistic-content-prefix { color: #397f78; margin-right: 10px; }
+.identity-card .ant-card-body { gap: 16px; }
+.identity-card .ant-card-body > div { display: grid; gap: 4px; }
+.identity-card h3.ant-typography { margin: 0; }
+.account-panel { display: grid; gap: 20px; }
+.account-form { margin-top: 20px; }
+.account-form .ant-progress { margin-bottom: 18px; }
+.account-modal-form { margin-top: 20px; }
+.security-method-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.security-method-card .ant-card-body { min-height: 290px; display: flex; flex-direction: column; align-items: flex-start; }
+.security-method-card h4.ant-typography { margin: 16px 0 8px; }
+.security-method-card p { min-height: 66px; }
+.security-method-card .ant-btn { margin-top: auto; }
+.method-icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; color: #9a6200; background: #fff7dc; }
+.method-icon.active { color: #397f78; background: #e5f2f0; }
+.session-detail { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; color: #667085; }
+.security-event-list { border: 1px solid #e6eaee; border-radius: 10px; overflow: hidden; }
+.security-event-list .ant-list-item { padding: 18px 20px; }
+.security-event-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #237a48; background: #e9f5ef; }
+.security-event-icon.blocked { color: #c83d38; background: #fff1f0; }
+.event-description { display: grid; gap: 6px; margin-top: 6px; }
+.event-description > span { color: #748092; font-size: 13px; }
+
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
   .login-intro { min-height: 300px; padding: 42px 8%; }
@@ -243,6 +269,7 @@ button, input, textarea { font: inherit; }
   .circle-grid { grid-template-columns: 1fr; }
   .notification-filters { grid-template-columns: 1fr 1fr; }
   .notification-filters > :first-child { grid-column: 1 / -1; }
+  .security-method-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
@@ -268,6 +295,7 @@ button, input, textarea { font: inherit; }
   .care-summary, .reminder-stats, .slot-grid { grid-template-columns: 1fr; }
   .community-summary { grid-template-columns: 1fr; }
   .notification-summary, .notification-filters { grid-template-columns: 1fr; }
+  .account-summary { grid-template-columns: 1fr; }
   .notification-filters > :first-child { grid-column: 1; }
   .comment-controls { align-items: flex-start; flex-direction: column; }
   .appointment-date { display: none; }

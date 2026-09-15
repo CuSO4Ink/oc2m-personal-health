@@ -70,5 +70,8 @@ The account contains sample data only. The password-reset page displays its gene
 - Unified in-app notifications for health, care, sharing, security and community events
 - Persistent unread state, category/status filters, search, mark-all-read and clear actions
 - Global unread badge in the application header
+- Account profile management with protected sign-in email changes
+- Current-password-verified password changes that revoke other sessions
+- Active-session management and account security activity history
 
-Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages, the moderator workbench and external email/SMS/push delivery are planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.

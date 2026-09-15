@@ -10,6 +10,7 @@ import SharingPrivacyPage from './SharingPrivacy'
 import CareServicesPage from './CareServices'
 import CommunityPage from './Community'
 import NotificationsPage from './Notifications'
+import AccountSecurityPage from './AccountSecurity'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -24,7 +25,6 @@ const navItems = [
 ]
 
 const plannedPages = {
-  '/account': ['Account & Security', 'Manage your profile and sign-in methods.'],
 }
 
 function Brand() {
@@ -152,7 +152,8 @@ function AppShell() {
   const location = useLocation()
   const { user, logout } = useAuth()
   const [unreadNotifications, setUnreadNotifications] = React.useState(0)
-  const pageTitle = location.pathname.startsWith('/records') ? 'Health Records' : navItems.find((item) => item.key === location.pathname)?.label || plannedPages[location.pathname]?.[0] || (location.pathname === '/notifications' ? 'Notifications' : 'Overview')
+  const utilityTitle = { '/notifications': 'Notifications', '/account': 'Account & Security' }[location.pathname]
+  const pageTitle = location.pathname.startsWith('/records') ? 'Health Records' : navItems.find((item) => item.key === location.pathname)?.label || plannedPages[location.pathname]?.[0] || utilityTitle || 'Overview'
   async function signOut() { await logout(); navigate('/login', { replace: true }) }
   const accountMenu = { items: [{ key: 'account', label: 'Account & Security', onClick: () => navigate('/account') }, { type: 'divider' }, { key: 'logout', label: 'Sign out', danger: true, onClick: signOut }] }
 
@@ -204,5 +205,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} /><Route path="/notifications" element={<NotificationsPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} /><Route path="/notifications" element={<NotificationsPage />} /><Route path="/account" element={<AccountSecurityPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }
