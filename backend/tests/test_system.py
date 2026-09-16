@@ -7,6 +7,66 @@ from app.extensions import db
 from app.models import AccessEvent, AppointmentSlot, CommunityCircle, CommunityMembership, CommunityPost, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, MedicalService, Notification, ServiceFacility, ShareRecipient, User
 
 
+def test_remember_cookie_restore_and_revocation_cannot_recreate_session():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    first, second = app.test_client(), app.test_client()
+    first.post("/api/auth/register", json={"full_name": "Remember Owner", "email": "remember@example.com", "password": "Patient123"})
+    first.post("/api/auth/logout")
+    first.post("/api/auth/login", json={"email": "remember@example.com", "password": "Patient123", "remember": True})
+    assert first.get_cookie("remember_token")
+    first.delete_cookie("session")
+    assert first.get("/api/account").status_code == 200
+    assert len(first.get("/api/account/sessions").get_json()["sessions"]) == 1
+    second.post("/api/auth/login", json={"email": "remember@example.com", "password": "Patient123"})
+    assert second.post("/api/account/sessions/revoke-others").get_json()["revoked_count"] == 1
+    first.delete_cookie("session")
+    assert first.get("/api/account").status_code == 401
+    assert first.get("/api/auth/me").get_json()["user"] is None
+    assert len(second.get("/api/account/sessions").get_json()["sessions"]) == 1
+
+
+def test_login_and_recovery_limits_expire():
+    from app.models import AuthAttempt
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Limit Owner", "email": "limits@example.com", "password": "Patient123"})
+    client.post("/api/auth/logout")
+    for _ in range(5):
+        assert client.post("/api/auth/login", json={"email": "limits@example.com", "password": "Wrong123"}).status_code == 401
+    limited = client.post("/api/auth/login", json={"email": "limits@example.com", "password": "Patient123"})
+    assert limited.status_code == 429
+    assert limited.headers["Retry-After"]
+    for _ in range(3):
+        assert client.post("/api/auth/password-reset/request", json={"email": "limits@example.com"}).status_code == 200
+    assert client.post("/api/auth/password-reset/request", json={"email": "limits@example.com"}).status_code == 429
+    with app.app_context():
+        AuthAttempt.query.update({"created_at": datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=16)})
+        db.session.commit()
+    assert client.post("/api/auth/login", json={"email": "limits@example.com", "password": "Patient123"}).status_code == 200
+
+
+def test_notification_resolution_and_badge_preferences():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Preference Owner", "email": "preferences@example.com", "password": "Patient123"})
+    reminder = client.post("/api/services/reminders", json={"title": "Due reading", "next_due_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()}).get_json()["reminder"]
+    initial = client.get("/api/notifications").get_json()
+    assert initial["summary"]["unread"] == 1
+    muted = client.put("/api/notifications/preferences", json={"muted_categories": ["care"]}).get_json()
+    assert muted["summary"]["unread"] == 0
+    assert len(client.get("/api/notifications").get_json()["notifications"]) == 1
+    assert client.put("/api/notifications/preferences", json={"muted_categories": ["security"]}).status_code == 400
+    client.put("/api/notifications/preferences", json={"muted_categories": []})
+    client.patch(f"/api/services/reminders/{reminder['id']}/complete")
+    resolved = client.get("/api/notifications?status=resolved").get_json()
+    assert len(resolved["notifications"]) == 1
+    assert resolved["notifications"][0]["resolved"] is True
+    assert resolved["summary"]["unread"] == 0
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={"full_name": "Other Preference", "email": "other-preferences@example.com", "password": "Patient123"})
+    assert client.get("/api/notifications").get_json()["summary"]["muted_categories"] == []
+
+
 def test_health_check():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     response = app.test_client().get("/api/health")
@@ -716,7 +776,11 @@ def test_account_profile_sensitive_changes_sessions_and_security_activity():
     assert updated.get_json()["profile"]["preferred_language"] == "简体中文"
 
     assert client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "wrong"}).status_code == 403
-    changed_email = client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "Patient123"})
+    assert client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "Patient123"}).status_code == 400
+    email_code = client.post("/api/account/email-change/request", json={"email": "changed@example.com", "current_password": "Patient123"}).get_json()["demo_code"]
+    assert client.get("/api/account").get_json()["user"]["email"] == "account@example.com"
+    assert client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "Patient123", "code": "invalid"}).status_code == 400
+    changed_email = client.post("/api/account/change-email", json={"email": "changed@example.com", "current_password": "Patient123", "code": email_code})
     assert changed_email.status_code == 200
     assert changed_email.get_json()["user"]["email"] == "changed@example.com"
 

@@ -1,8 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import api from './api'
-
-const AuthContext = createContext(null)
+import { AuthContext } from './authContext'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -20,6 +19,12 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh().catch(() => setLoading(false))
   }, [refresh])
+
+  useEffect(() => {
+    const endSession = () => setUser(null)
+    window.addEventListener('auth:ended', endSession)
+    return () => window.removeEventListener('auth:ended', endSession)
+  }, [])
 
   const value = useMemo(() => ({
     user,

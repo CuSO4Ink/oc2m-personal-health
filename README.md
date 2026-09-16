@@ -82,9 +82,14 @@ The account contains sample data only. The password-reset page displays its gene
 - Basic persistent posting/comment frequency limits with health-record isolation and safety guidance
 - Unified in-app notifications for health, care, sharing, security and community events
 - Persistent unread state, category/status filters, search, mark-all-read and clear actions
-- Global unread badge in the application header
+- Global unread badge with persisted optional-category mute preferences
+- Resolved-event history for completed tasks, reviewed alerts/access activity and ended appointments/shares
+- Resolved notices stay in the inbox but no longer count in the attention badge
 - Account profile management with protected sign-in email changes
 - Current-password-verified password changes that revoke other sessions
 - Active-session management and account security activity history
+- Remember cookies bound to server sessions, preventing revoked/expired session resurrection
+- Database-backed login and password-recovery attempt limits
+- Two-step email change with expiring, attempt-limited development verification codes (no real mailbox delivery)
 
 Provider system integration, recipient identity-directory integration, correction requests, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.

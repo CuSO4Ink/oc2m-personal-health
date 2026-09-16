@@ -16,6 +16,8 @@ from ..models import (
     HealthAlert,
     HealthReminder,
     Notification,
+    NotificationPreference,
+    NotificationResolution,
     SecurityEvent,
     ShareGrant,
     utc_now,
@@ -56,7 +58,7 @@ def sync_current_notifications():
             category="care",
             severity="warning",
             title=f"Health task due: {reminder.title}",
-            message=f"This task was due on {reminder.next_due_at.strftime('%d %b %Y at %H:%M')}. {reminder.schedule_note}.",
+            message=f"This task was due on {reminder.next_due_at.strftime('%d %b %Y at %H:%M UTC')}. {reminder.schedule_note}.",
             action_path="/services",
             source_name=reminder.source_name,
             created_at=reminder.next_due_at,
@@ -73,7 +75,7 @@ def sync_current_notifications():
             category="care",
             severity="info",
             title=f"Upcoming appointment: {appointment.slot.service.name}",
-            message=f"Your appointment is confirmed for {appointment.slot.starts_at.strftime('%d %b %Y at %H:%M')} with {appointment.slot.service.facility.name}.",
+            message=f"Your appointment is confirmed for {appointment.slot.starts_at.strftime('%d %b %Y at %H:%M UTC')} with {appointment.slot.service.facility.name}.",
             action_path="/services",
             source_name=appointment.slot.service.facility.name,
             created_at=appointment.booked_at,
@@ -114,7 +116,7 @@ def sync_current_notifications():
             category="sharing",
             severity="warning",
             title="Sharing permission expires soon",
-            message=f"{grant.recipient.full_name}'s access to {len(grant.record_links)} selected records expires on {grant.expires_at.strftime('%d %b %Y at %H:%M')}.",
+            message=f"{grant.recipient.full_name}'s access to {len(grant.record_links)} selected records expires on {grant.expires_at.strftime('%d %b %Y at %H:%M UTC')}.",
             action_path="/sharing",
             source_name="Sharing & Privacy",
             created_at=now,
@@ -156,14 +158,51 @@ def sync_current_notifications():
                 continue
             if not comment or comment.status != "published" or comment.post.status != "published" or comment.user_id in blocked:
                 notification.archived_at = now
+    for notification in Notification.query.filter_by(user_id=current_user.id).all():
+        key = notification.dedupe_key
+        resolved = False
+        for prefix, model, predicate in [
+            ("health-alert-", HealthAlert, lambda item: bool(item.acknowledged_at)),
+            ("health-reminder-", HealthReminder, lambda item: bool(item.completed_at)),
+            ("appointment-", Appointment, lambda item: item.status != "confirmed" or item.slot.starts_at <= now),
+            ("share-expiry-", ShareGrant, lambda item: item.status in {"expired", "revoked"}),
+            ("access-event-", AccessEvent, lambda item: bool(item.review)),
+        ]:
+            if key.startswith(prefix):
+                try:
+                    item = db.session.get(model, int(key[len(prefix):]))
+                    resolved = bool(item and predicate(item))
+                except ValueError:
+                    pass
+                break
+        if resolved and not notification.resolution:
+            db.session.add(NotificationResolution(notification_id=notification.id))
     db.session.commit()
 
 
 def summary_payload():
     active = Notification.query.filter_by(user_id=current_user.id, archived_at=None)
     unread = active.filter(Notification.read_at.is_(None))
+    preference = db.session.get(NotificationPreference, current_user.id)
+    muted = preference.muted_categories if preference else []
+    unread = unread.filter(Notification.category.notin_(muted), Notification.id.notin_(db.session.query(NotificationResolution.notification_id)))
     by_category = {category: unread.filter_by(category=category).count() for category in sorted(CATEGORIES)}
-    return {"unread": unread.count(), "total": active.count(), "unread_by_category": by_category}
+    return {"unread": unread.count(), "total": active.count(), "unread_by_category": by_category, "muted_categories": muted}
+
+
+@notifications_bp.put("/preferences")
+@login_required
+def update_preferences():
+    muted = (request.get_json(silent=True) or {}).get("muted_categories")
+    if not isinstance(muted, list) or any(not isinstance(item, str) or item not in {"care", "sharing", "community"} for item in muted):
+        return jsonify({"message": "Health, security and system notices cannot be muted."}), 400
+    preference = db.session.get(NotificationPreference, current_user.id)
+    if not preference:
+        preference = NotificationPreference(user_id=current_user.id)
+        db.session.add(preference)
+    preference.muted_categories = sorted(set(muted))
+    db.session.commit()
+    return jsonify({"summary": summary_payload()})
 
 
 @notifications_bp.get("")
@@ -178,6 +217,8 @@ def list_notifications():
         query = query.filter(Notification.read_at.is_(None))
     elif status == "read":
         query = query.filter(Notification.read_at.is_not(None))
+    elif status == "resolved":
+        query = query.filter(Notification.id.in_(db.session.query(NotificationResolution.notification_id)))
     elif status != "all":
         return jsonify({"error": "invalid_status", "message": "Select all, unread or read notifications."}), 400
     if category != "all":

@@ -1,11 +1,12 @@
 import secrets
+import hashlib
 from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db
-from ..models import AccountSession, PasswordResetToken, SecurityEvent, User, utc_now
+from ..models import AccountSession, AuthAttempt, PasswordResetToken, SecurityEvent, User, utc_now
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -20,10 +21,25 @@ def normalise_email(value):
 
 
 def validate_password(password):
+    if len(password) > 128:
+        return "Password must be 128 characters or fewer."
     if len(password) < 8:
         return "Password must contain at least 8 characters."
     if not any(character.isalpha() for character in password) or not any(character.isdigit() for character in password):
         return "Password must include at least one letter and one number."
+    return None
+
+
+def throttle(scope, email, limit=5, minutes=15, record=False):
+    key = hashlib.sha256(f"{scope}:{email}:{request_ip()}".encode()).hexdigest()
+    cutoff = utc_now() - timedelta(minutes=minutes)
+    AuthAttempt.query.filter(AuthAttempt.created_at < utc_now() - timedelta(days=1)).delete()
+    if AuthAttempt.query.filter(AuthAttempt.key == key, AuthAttempt.created_at >= cutoff).count() >= limit:
+        response = jsonify({"error": "rate_limited", "message": f"Too many attempts. Try again in {minutes} minutes."})
+        response.headers["Retry-After"] = str(minutes * 60)
+        return response, 429
+    if record:
+        db.session.add(AuthAttempt(key=key)); db.session.commit()
     return None
 
 
@@ -118,8 +134,8 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.flush()
-    login_user(user)
     create_account_session(user)
+    login_user(user)
     record_security_event(user.id, "account_created", "Your account was created and signed in.")
     db.session.commit()
     return jsonify({"user": user.to_dict()}), 201
@@ -130,17 +146,24 @@ def login():
     data = body()
     email = normalise_email(data.get("email"))
     password = str(data.get("password") or "")
+    limited = throttle("login", email)
+    if limited:
+        return limited
     user = User.query.filter_by(email=email).first()
 
     if not user or not user.check_password(password):
+        throttle("login", email, record=True)
         if user:
             record_security_event(user.id, "login_failed", "A sign-in attempt used an incorrect password.", result="blocked", important=True)
             db.session.commit()
         return jsonify({"error": "invalid_credentials", "message": "The email address or password is incorrect."}), 401
 
     remember = bool(data.get("remember"))
-    login_user(user, remember=remember)
+    session.clear()
+    if not remember:
+        session["_remember"] = "clear"
     create_account_session(user, remember=remember)
+    login_user(user, remember=remember)
     record_security_event(user.id, "login", "Signed in successfully.")
     db.session.commit()
     return jsonify({"user": user.to_dict()})
@@ -170,6 +193,9 @@ def me():
 @auth_bp.post("/password-reset/request")
 def request_password_reset():
     email = normalise_email(body().get("email"))
+    limited = throttle("reset-request", email, limit=3, minutes=10, record=True)
+    if limited:
+        return limited
     user = User.query.filter_by(email=email).first()
     response = {"message": "If this email belongs to an account, a reset code has been prepared."}
 
@@ -190,6 +216,9 @@ def request_password_reset():
 def confirm_password_reset():
     data = body()
     email = normalise_email(data.get("email"))
+    limited = throttle("reset-confirm", email, record=True)
+    if limited:
+        return limited
     code = str(data.get("code") or "").strip()
     password = str(data.get("password") or "")
     user = User.query.filter_by(email=email).first()

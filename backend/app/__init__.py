@@ -1,11 +1,11 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, session
 from flask_cors import CORS
 
 from .extensions import db, login_manager
-from .models import User
+from .models import AccountSession, User
 from .routes.account import account_bp
 from .routes.auth import auth_bp
 from .routes.community import community_bp
@@ -61,7 +61,16 @@ def create_app(test_config=None):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    try:
+        identifier, separator, embedded_token = user_id.partition(":")
+        token = embedded_token if separator else session.get("account_session_token")
+        account_session = AccountSession.query.filter_by(user_id=int(identifier), token=token).first() if token else None
+        if not account_session or not account_session.active:
+            return None
+        session["account_session_token"] = token
+        return db.session.get(User, int(identifier))
+    except (ValueError, TypeError):
+        return None
 
 
 @login_manager.unauthorized_handler

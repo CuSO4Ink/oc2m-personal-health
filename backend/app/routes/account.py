@@ -1,11 +1,14 @@
 from datetime import date
+import secrets
+from datetime import timedelta
+from werkzeug.security import generate_password_hash, check_password_hash
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import AccountProfile, AccountSession, SecurityEvent, User, utc_now
-from .auth import ensure_account_session, normalise_email, record_security_event, validate_password
+from ..models import AccountProfile, AccountSession, EmailChangeToken, SecurityEvent, User, utc_now
+from .auth import ensure_account_session, normalise_email, record_security_event, throttle, validate_password
 
 
 account_bp = Blueprint("account", __name__)
@@ -32,6 +35,7 @@ def account_payload():
         "user": current_user.to_dict(),
         "profile": profile.to_dict(),
         "profile_completeness": int(completed / 4 * 100),
+        "protection": {"login_limit": "5 failed attempts per email and IP in 15 minutes", "recovery_mode": "Development code preview; email delivery is not connected", "phone_verified": False},
         "sign_in_methods": [
             {"key": "password", "name": "Password", "status": "active", "description": "Available for sign-in and account recovery."},
             {"key": "sms", "name": "SMS verification", "status": "planned", "description": "Requires a verified phone number and message provider."},
@@ -96,11 +100,44 @@ def change_email():
         return jsonify({"error": "email_exists", "message": "An account with this email already exists."}), 409
     if email == current_user.email:
         return jsonify({"error": "email_unchanged", "message": "Enter a different email address."}), 400
+    token = db.session.get(EmailChangeToken, current_user.id)
+    if not token or token.email != email or token.expires_at <= utc_now() or token.attempts >= 5:
+        return jsonify({"message": "Request a valid new-email verification code first."}), 400
+    token.attempts += 1
+    if not check_password_hash(token.code_hash, str(data.get("code") or "")):
+        db.session.commit()
+        return jsonify({"message": "Verification code is incorrect."}), 400
     previous_email = current_user.email
     current_user.email = email
+    db.session.delete(token)
     record_security_event(current_user.id, "email_changed", f"Sign-in email changed from {previous_email} to {email}.", important=True)
     db.session.commit()
     return jsonify(account_payload())
+
+
+@account_bp.post("/email-change/request")
+@login_required
+def request_email_change():
+    data = body()
+    email = normalise_email(data.get("email"))
+    if not current_user.check_password(str(data.get("current_password") or "")):
+        return jsonify({"message": "Current password is incorrect."}), 403
+    if "@" not in email or len(email) > 120 or email == current_user.email:
+        return jsonify({"message": "Enter a different valid email address."}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "This email is already registered."}), 409
+    limited = throttle("email-change", str(current_user.id), limit=3, minutes=10, record=True)
+    if limited:
+        return limited
+    if current_app.config["RESET_CODE_DELIVERY"] != "demo":
+        return jsonify({"message": "Email delivery is not connected. Your sign-in email remains unchanged."}), 503
+    code = f"{secrets.randbelow(1000000):06d}"
+    token = db.session.get(EmailChangeToken, current_user.id)
+    if token:
+        db.session.delete(token); db.session.flush()
+    db.session.add(EmailChangeToken(user_id=current_user.id, email=email, code_hash=generate_password_hash(code), expires_at=utc_now() + timedelta(minutes=10)))
+    db.session.commit()
+    return jsonify({"demo_code": code, "message": "Development-only code preview. No email has been sent; this does not verify ownership of a real mailbox."})
 
 
 @account_bp.post("/change-password")

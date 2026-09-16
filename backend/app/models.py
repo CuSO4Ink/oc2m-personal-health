@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 
 from flask_login import UserMixin
+from flask import session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .extensions import db
@@ -25,6 +26,9 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def get_id(self):
+        return f"{self.id}:{session.get('account_session_token', '')}"
 
     def to_dict(self):
         initials = "".join(part[0] for part in self.full_name.split()[:2]).upper()
@@ -702,7 +706,37 @@ class Notification(db.Model):
             "created_at": self.created_at.isoformat() + "Z",
             "read_at": self.read_at.isoformat() + "Z" if self.read_at else None,
             "unread": self.read_at is None,
+            "resolved": bool(self.resolution),
         }
+
+
+class NotificationPreference(db.Model):
+    __tablename__ = "notification_preferences"
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    muted_categories = db.Column(db.JSON, nullable=False, default=list)
+
+
+class NotificationResolution(db.Model):
+    __tablename__ = "notification_resolutions"
+    notification_id = db.Column(db.Integer, db.ForeignKey("notifications.id"), primary_key=True)
+    resolved_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    notification = db.relationship("Notification", backref=db.backref("resolution", uselist=False, cascade="all, delete-orphan"))
+
+
+class AuthAttempt(db.Model):
+    __tablename__ = "auth_attempts"
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
+
+
+class EmailChangeToken(db.Model):
+    __tablename__ = "email_change_tokens"
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    email = db.Column(db.String(120), nullable=False)
+    code_hash = db.Column(db.String(255), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
 
 
 class AccountProfile(db.Model):
