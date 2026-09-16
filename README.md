@@ -247,7 +247,7 @@ git commit -m "feat: describe your change"
 git push -u origin feature/your-module
 ```
 
-在 GitHub 创建 Pull Request 合入 `main`，说明功能、验证方法及限制。不要提交真实健康数据、密码、数据库或本地环境目录，不要使用强制推送覆盖队友提交。原始全栈开发历史也保留在 `feature/fullstack-foundation` 分支。
+在 GitHub 创建 Pull Request 合入 `main`，说明功能、验证方法及限制。不要提交真实健康数据、密码、数据库或本地环境目录，不要使用强制推送覆盖队友提交。完整网站代码同时发布到 `feature/fullstack-foundation` 分支；组员从 `main` 创建自己的功能分支。
 
 ## 13. 已实现功能与当前边界
 
