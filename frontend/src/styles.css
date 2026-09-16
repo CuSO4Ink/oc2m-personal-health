@@ -254,6 +254,17 @@ button, input, textarea { font: inherit; }
 .event-description { display: grid; gap: 6px; margin-top: 6px; }
 .event-description > span { color: #748092; font-size: 13px; }
 
+.overview-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.overview-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.overview-stats .ant-btn { padding-inline: 0; margin-top: 10px; }
+.overview-attention { display: grid; gap: 12px; }
+.overview-lower-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.overview-sharing-notice { margin-bottom: 14px; }
+.overview-access-event { display: grid; gap: 5px; padding: 12px 0; border-top: 1px solid #edf0f3; }
+.overview-record-meta { display: grid; gap: 6px; }
+@media (max-width: 900px) { .overview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .overview-lower-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .overview-stats { grid-template-columns: 1fr; } .overview-attention .ant-alert { flex-wrap: wrap; } .overview-attention .ant-alert-actions { margin: 12px 0 0; } }
+
 @media (max-width: 900px) {
   .login-page { grid-template-columns: 1fr; }
   .login-intro { min-height: 300px; padding: 42px 8%; }

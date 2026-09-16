@@ -13,6 +13,26 @@ def test_health_check():
     assert response.get_json()["status"] == "ok"
 
 
+def test_overview_empty_state_record_updates_and_account_isolation():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    assert client.get("/api/overview").status_code == 401
+    client.post("/api/auth/register", json={"full_name": "Overview Owner", "email": "overview@example.com", "password": "Patient123"})
+    empty = client.get("/api/overview").get_json()
+    assert empty["records"]["count"] == 0
+    assert all(item["reading"] is None for item in empty["readings"])
+    client.post("/api/records", json={"title": "Overview note", "record_type": "Other", "record_date": date.today().isoformat(), "content": "Private note"})
+    client.post("/api/services/reminders", json={"title": "Due task", "category": "general", "next_due_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(), "schedule_note": "One time"})
+    populated = client.get("/api/overview").get_json()
+    assert populated["records"]["count"] == 1
+    assert populated["attention"]["due_task_count"] == 1
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={"full_name": "Another User", "email": "overview-other@example.com", "password": "Patient123"})
+    other = client.get("/api/overview").get_json()
+    assert other["records"]["count"] == 0
+    assert other["attention"]["due_task_count"] == 0
+
+
 def test_authentication_and_password_reset():
     app = create_app({
         "TESTING": True,

@@ -1,5 +1,5 @@
 import React from 'react'
-import { BellOutlined, CalendarOutlined, DownOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons'
+import { BellOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons'
 import { Alert, Avatar, Badge, Button, Card, Checkbox, Divider, Dropdown, Form, Input, Layout, Menu, Space, Spin, Tag, Typography } from 'antd'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import api, { apiMessage } from './api'
@@ -11,6 +11,7 @@ import CareServicesPage from './CareServices'
 import CommunityPage from './Community'
 import NotificationsPage from './Notifications'
 import AccountSecurityPage from './AccountSecurity'
+import HealthOverviewPage from './HealthOverview'
 
 const { Content, Header, Sider } = Layout
 const { Title, Text, Paragraph, Link } = Typography
@@ -168,36 +169,6 @@ function AppShell() {
   return <Layout className="app-shell"><Sider width={260} theme="light" className="app-sider"><Brand /><Menu mode="inline" selectedKeys={[location.pathname]} items={navItems} onClick={({ key }) => navigate(key)} /></Sider><Layout><Header className="app-header"><Text>{pageTitle}</Text><Space size="large"><Badge count={unreadNotifications} size="small" overflowCount={99}><Button aria-label={`Open notifications, ${unreadNotifications} unread`} type="text" shape="circle" icon={<BellOutlined />} onClick={() => navigate('/notifications')} /></Badge><Dropdown menu={accountMenu} trigger={['click']}><button className="profile-button"><Avatar>{user.initials}</Avatar><span>{user.full_name}</span><DownOutlined /></button></Dropdown></Space></Header><Content className="app-content"><Outlet /></Content></Layout></Layout>
 }
 
-function OverviewPage() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const firstName = user.full_name.split(' ')[0]
-  const [recentRecords, setRecentRecords] = React.useState([])
-  const [latestReadings, setLatestReadings] = React.useState([])
-  const [shareNotice, setShareNotice] = React.useState(null)
-  const [careNotice, setCareNotice] = React.useState(null)
-  React.useEffect(() => { api.get('/records').then(({ data }) => setRecentRecords(data.records.slice(0, 2))).catch(() => {}) }, [])
-  React.useEffect(() => {
-    Promise.all(['blood_pressure', 'blood_glucose', 'heart_rate'].map((metric) => api.get('/insights/metrics', { params: { metric, days: 365 } })))
-      .then((responses) => setLatestReadings(responses.map(({ data }) => ({ ...data.latest, label: data.metric.label })).filter((item) => item.id)))
-      .catch(() => {})
-  }, [])
-  React.useEffect(() => {
-    api.get('/sharing/grants').then(({ data }) => {
-      const soon = data.grants.filter((grant) => grant.status === 'active' && new Date(grant.expires_at).getTime() - Date.now() <= 7 * 86400000).sort((a, b) => new Date(a.expires_at) - new Date(b.expires_at))[0]
-      setShareNotice(soon || null)
-    }).catch(() => {})
-  }, [])
-  React.useEffect(() => {
-    Promise.all([api.get('/services/appointments'), api.get('/services/reminders')]).then(([appointmentResponse, reminderResponse]) => {
-      const next = appointmentResponse.data.appointments.find((appointment) => appointment.status === 'confirmed' && new Date(appointment.slot.starts_at) > new Date())
-      const due = reminderResponse.data.reminders.filter((reminder) => reminder.status === 'overdue').length
-      setCareNotice({ next, due })
-    }).catch(() => {})
-  }, [])
-  return <div className="page-stack"><div className="page-heading"><div><Title level={1}>Health Overview</Title><Paragraph>Welcome back, {firstName}. Review your recent records and manage what you share.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/records/new')}>Add Record</Button></div>{shareNotice && <div className="warning-banner"><b>A sharing permission expires soon</b><span>{shareNotice.recipient.full_name}’s access to {shareNotice.records.length} selected records expires on {new Date(shareNotice.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}. <Button type="link" onClick={() => navigate('/sharing')}>Review permission</Button></span></div>}{careNotice && (careNotice.next || careNotice.due) && <Card className="overview-care-card"><CalendarOutlined /><div><Text strong>{careNotice.next ? `Next appointment: ${careNotice.next.service.name}` : `${careNotice.due} health ${careNotice.due === 1 ? 'task is' : 'tasks are'} due`}</Text><Text>{careNotice.next ? `${new Date(careNotice.next.slot.starts_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · ${careNotice.next.service.facility.name}` : 'Open Care Services to review your reminders.'}</Text></div><Button onClick={() => navigate('/services')}>Open Care Services</Button></Card>}<section><Title level={3}>Latest Readings</Title><div className="reading-grid">{latestReadings.map((reading) => <Card key={reading.metric_type} className="reading-card"><Text strong>{reading.label}{reading.context === 'fasting' ? ' · Fasting' : ''}</Text><div className="reading-value">{reading.secondary_value == null ? reading.value : `${reading.value}/${reading.secondary_value}`} <small>{reading.unit}</small></div><Text type="secondary">Recorded on {new Date(reading.measured_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</Text><Text type="secondary">Source: {reading.source_name}</Text><Button type="link" onClick={() => navigate('/insights')}>View trends →</Button></Card>)}</div></section><section><div className="section-heading"><Title level={3}>Recent Health Records</Title><Button type="link" onClick={() => navigate('/records')}>View All Records</Button></div><div className="record-grid">{recentRecords.map((record) => <Card key={record.id} hoverable onClick={() => navigate(`/records/${record.id}`)}><Tag>{record.record_type}</Tag><Title level={4}>{record.title}</Title><Text type="secondary">Record date: {new Date(`${record.record_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></Card>)}</div></section></div>
-}
-
 function PlannedPage() {
   const { pathname } = useLocation()
   const [title, description] = plannedPages[pathname] || ['Page not found', '']
@@ -205,5 +176,5 @@ function PlannedPage() {
 }
 
 export default function App() {
-  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<OverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} /><Route path="/notifications" element={<NotificationsPage />} /><Route path="/account" element={<AccountSecurityPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
+  return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route element={<ProtectedRoute />}><Route element={<AppShell />}><Route path="/overview" element={<HealthOverviewPage />} /><Route path="/records" element={<RecordsPage />} /><Route path="/records/new" element={<RecordFormPage />} /><Route path="/records/:id" element={<RecordDetailPage />} /><Route path="/records/:id/edit" element={<RecordFormPage editing />} /><Route path="/records/:id/history" element={<RecordHistoryPage />} /><Route path="/insights" element={<HealthInsightsPage />} /><Route path="/sharing" element={<SharingPrivacyPage />} /><Route path="/services" element={<CareServicesPage />} /><Route path="/community" element={<CommunityPage />} /><Route path="/notifications" element={<NotificationsPage />} /><Route path="/account" element={<AccountSecurityPage />} />{Object.keys(plannedPages).map((path) => <Route key={path} path={path} element={<PlannedPage />} />)}</Route></Route><Route path="/" element={<Navigate to="/overview" replace />} /><Route path="*" element={<Navigate to="/overview" replace />} /></Routes></AuthProvider>
 }

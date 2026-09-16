@@ -47,7 +47,9 @@ The account contains sample data only. The password-reset page displays its gene
 ## Implemented modules
 
 - Account registration, session login, logout and development password reset
-- Health overview with recent records loaded from the API
+- Account-scoped health overview with refresh, pending alerts, overdue tasks, upcoming appointments and active sharing counts
+- Latest measurements with collection time, source, missing-data and stale-data notices
+- Recently updated records, expiring permissions, historical unusual access and working module shortcuts
 - Health record search and filtering by keyword, type, source and date
 - Self-reported record creation, editing and version history
 - Read-only provider-synced records with source and sync provenance
