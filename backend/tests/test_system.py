@@ -206,7 +206,7 @@ def test_health_measurements_trends_alerts_and_ownership():
 
     normal = client.post("/api/insights/metrics", json={
         "metric_type": "blood_pressure",
-        "value": 122,
+        "value": 118,
         "secondary_value": 78,
         "measured_at": measured_at,
         "source_name": "Home monitor",
@@ -248,6 +248,52 @@ def test_health_measurements_trends_alerts_and_ownership():
     })
     assert client.get("/api/insights/metrics?metric=blood_pressure&days=30").get_json()["summary"]["count"] == 0
     assert client.patch(f"/api/insights/alerts/{alert['id']}/acknowledge").status_code == 404
+
+
+def test_insights_context_flags_daily_sufficiency_and_review_history():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Context Owner", "email": "context@example.com", "password": "Patient123"})
+    now = datetime.now(timezone.utc)
+
+    def add(metric, value, context="", days_ago=0, secondary=None):
+        return client.post("/api/insights/metrics", json={"metric_type": metric, "value": value, "secondary_value": secondary, "context": context, "measured_at": (now - timedelta(days=days_ago)).isoformat()}).get_json()
+
+    assert add("blood_pressure", 120, secondary=78)["measurement"]["status"] == "watch"
+    assert add("blood_pressure", 89, secondary=59)["measurement"]["status"] == "low"
+    low = add("blood_glucose", 3.8, "random")
+    assert low["measurement"]["status"] == "low"
+    assert low["alert"]["rule_version"] == "1.1"
+    assert add("blood_glucose", 3.9, "fasting")["measurement"]["status"] == "in_range"
+    assert add("blood_glucose", 5.6, "fasting", 1)["measurement"]["status"] == "watch"
+    assert add("blood_glucose", 7, "fasting", 2)["measurement"]["status"] == "high"
+    random = add("blood_glucose", 6, "random")
+    assert random["measurement"]["status"] == "not_assessed"
+    assert random["alert"] is None
+    assert add("blood_glucose", 11.1, "after_meal")["measurement"]["status"] == "high"
+    assert add("heart_rate", 130, "exercise")["alert"] is None
+    assert add("heart_rate", 59, "resting")["measurement"]["status"] == "watch"
+    assert add("heart_rate", 60, "resting")["measurement"]["status"] == "in_range"
+    trend = client.get("/api/insights/metrics?metric=blood_glucose&context=fasting").get_json()
+    assert trend["summary"]["count"] == 3
+    assert trend["summary"]["distinct_days"] == 3
+    assert trend["data_sufficiency"]["status"] == "sufficient"
+    assert all(item["context"] == "fasting" for item in trend["readings"])
+    assert trend["reference"]["sources"]
+    same_day = client.get("/api/insights/metrics?metric=heart_rate").get_json()
+    assert same_day["data_sufficiency"]["status"] == "limited"
+    assert same_day["summary"]["unassessed_count"] == 1
+    assert client.get("/api/insights/metrics?metric=heart_rate&context=fasting").status_code == 400
+    alert_id = low["alert"]["id"]
+    reviewed = client.patch(f"/api/insights/alerts/{alert_id}/acknowledge").get_json()["alert"]
+    again = client.patch(f"/api/insights/alerts/{alert_id}/acknowledge").get_json()["alert"]
+    assert reviewed["acknowledged_at"] == again["acknowledged_at"]
+    history = client.get("/api/insights/alerts?status=reviewed").get_json()
+    assert history["count"] == 1
+    assert history["alerts"][0]["id"] == alert_id
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={"full_name": "Other Context", "email": "context-other@example.com", "password": "Patient123"})
+    assert client.get("/api/insights/alerts?status=all").get_json()["alerts"] == []
 
 
 def test_sharing_permission_preview_lifecycle_and_ownership():

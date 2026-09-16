@@ -320,3 +320,4 @@ button, input, textarea { font: inherit; }
   .attachment-item .ant-list-item-action { margin: 0; }
   .record-detail-page .ant-card-head { flex-wrap: wrap; }
 }
+.insight-context-filter { width: 280px; max-width: 100%; }

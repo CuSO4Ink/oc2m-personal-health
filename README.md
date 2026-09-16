@@ -58,7 +58,9 @@ The account contains sample data only. The password-reset page displays its gene
 - Ownership checks and optimistic version conflict protection in the API
 - Blood pressure, blood glucose and heart-rate trend charts with time filters
 - Validated manual reading entry with fixed units, source and collection time
-- Versioned reference-threshold alerts with review status
+- Versioned reference-threshold alerts with pending/reviewed history and preserved original rules
+- Context filters, timestamped reading history, multi-date data-sufficiency checks and diastolic averages
+- Explainable adult reference flags with AHA/NIDDK/ADA source links; no normal classification for unsupported contexts
 - Data-sufficiency notices and traceable rule-based trend summaries
 - Verified healthcare-recipient directory and fixed-record sharing permissions
 - Permission preview, view/download controls, expiry and immediate revocation
