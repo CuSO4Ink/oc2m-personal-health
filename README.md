@@ -76,7 +76,10 @@ The account contains sample data only. The password-reset page displays its gene
 - Care appointment and task summaries on the health overview
 - Optional Community profile with explicit on/off control
 - Peer-circle membership, anonymous experience posts, likes and comments
-- Community reporting workflow with health-record isolation and safety guidance
+- Post and comment reporting with account-isolated submission history
+- Owner comment deletion, anonymous-safe member blocking and reversible block management
+- Bidirectional content/interaction filtering and removal of blocked/deleted comment notifications
+- Basic persistent posting/comment frequency limits with health-record isolation and safety guidance
 - Unified in-app notifications for health, care, sharing, security and community events
 - Persistent unread state, category/status filters, search, mark-all-read and clear actions
 - Global unread badge in the application header

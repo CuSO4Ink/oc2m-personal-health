@@ -10,6 +10,7 @@ from ..models import (
     Appointment,
     AppointmentSlot,
     CommunityComment,
+    CommunityBlock,
     CommunityPost,
     CommunityProfile,
     HealthAlert,
@@ -126,7 +127,14 @@ def sync_current_notifications():
             CommunityComment.user_id != current_user.id,
             CommunityComment.status == "published",
         ).all()
+        blocks = CommunityBlock.query.filter(or_(CommunityBlock.user_id == current_user.id, CommunityBlock.target_id == current_user.id)).all()
+        blocked = {block.target_id if block.user_id == current_user.id else block.user_id for block in blocks}
         for comment in comments:
+            if comment.user_id in blocked:
+                existing = Notification.query.filter_by(user_id=current_user.id, dedupe_key=f"community-comment-{comment.id}").first()
+                if existing:
+                    existing.archived_at = now
+                continue
             author = "An anonymous member" if comment.anonymous else comment.user.full_name
             ensure_notification(
                 f"community-comment-{comment.id}",
@@ -138,6 +146,16 @@ def sync_current_notifications():
                 source_name=comment.post.circle.name,
                 created_at=comment.created_at,
             )
+    blocks = CommunityBlock.query.filter(or_(CommunityBlock.user_id == current_user.id, CommunityBlock.target_id == current_user.id)).all()
+    blocked = {block.target_id if block.user_id == current_user.id else block.user_id for block in blocks}
+    for notification in Notification.query.filter_by(user_id=current_user.id, category="community", archived_at=None).all():
+        if notification.dedupe_key.startswith("community-comment-"):
+            try:
+                comment = db.session.get(CommunityComment, int(notification.dedupe_key.rsplit("-", 1)[-1]))
+            except ValueError:
+                continue
+            if not comment or comment.status != "published" or comment.post.status != "published" or comment.user_id in blocked:
+                notification.archived_at = now
     db.session.commit()
 
 

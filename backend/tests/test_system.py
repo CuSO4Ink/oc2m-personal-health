@@ -506,6 +506,50 @@ def test_rescheduling_capacity_and_repeating_reminder_idempotence():
     assert client.patch(f"/api/services/reminders/{current['id']}/stop-repeat").status_code == 404
 
 
+def test_community_comment_reports_blocks_anonymity_and_rate_limits():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    owner, visitor = app.test_client(), app.test_client()
+    with app.app_context():
+        circle = CommunityCircle(name="Interaction circle", topic="Support", description="Test")
+        db.session.add(circle); db.session.commit(); circle_id = circle.id
+    for client, name, email in [(owner, "Owner Identity", "community-owner-new@example.com"), (visitor, "Secret Visitor Identity", "community-visitor-new@example.com")]:
+        client.post("/api/auth/register", json={"full_name": name, "email": email, "password": "Patient123"})
+        client.patch("/api/community/profile", json={"enabled": True})
+        client.post(f"/api/community/circles/{circle_id}/membership")
+    payload = {"circle_id": circle_id, "body": "A supportive personal experience", "anonymous": True, "acknowledged": True}
+    post = owner.post("/api/community/posts", json=payload).get_json()["post"]
+    other = visitor.post("/api/community/posts", json=payload).get_json()["post"]
+    assert owner.post("/api/community/posts", json=payload).status_code == 429
+    comment = visitor.post(f"/api/community/posts/{post['id']}/comments", json={"body": "Supportive reply", "anonymous": True}).get_json()["post"]["comments"][0]
+    assert visitor.post(f"/api/community/posts/{post['id']}/comments", json={"body": "Repeated reply"}).status_code == 429
+    assert owner.delete(f"/api/community/comments/{comment['id']}").status_code == 404
+    report_endpoint = f"/api/community/comments/{comment['id']}/reports"
+    assert visitor.post(report_endpoint, json={"reason": "spam"}).status_code == 400
+    assert owner.post(report_endpoint, json={"reason": "spam", "details": "Test concern"}).status_code == 201
+    assert owner.post(report_endpoint, json={"reason": "spam"}).status_code == 409
+    assert owner.get("/api/community").get_json()["reports"][0]["target_type"] == "comment"
+    assert visitor.get("/api/community").get_json()["reports"] == []
+    owner.get("/api/notifications")
+    assert owner.post("/api/community/blocks", json={"target_type": "post", "target_id": other["id"]}).status_code == 201
+    overview = owner.get("/api/community").get_json()
+    assert len(overview["posts"]) == 1
+    assert overview["posts"][0]["comments"] == []
+    assert overview["blocks"][0]["label"] == "Anonymous member"
+    assert "target_id" not in overview["blocks"][0]
+    assert "Secret Visitor Identity" not in str(overview)
+    assert visitor.get("/api/community").get_json()["posts"][0]["id"] == other["id"]
+    assert visitor.post(f"/api/community/posts/{post['id']}/like").status_code == 404
+    assert owner.post(f"/api/community/posts/{other['id']}/comments", json={"body": "Blocked reply"}).status_code == 404
+    assert owner.get("/api/notifications").get_json()["summary"]["unread"] == 0
+    block_id = overview["blocks"][0]["id"]
+    assert visitor.delete(f"/api/community/blocks/{block_id}").status_code == 404
+    assert owner.delete(f"/api/community/blocks/{block_id}").status_code == 200
+    assert len(owner.get("/api/community").get_json()["posts"]) == 2
+    assert visitor.delete(f"/api/community/comments/{comment['id']}").status_code == 200
+    own = next(item for item in owner.get("/api/community").get_json()["posts"] if item["id"] == post["id"])
+    assert own["comment_count"] == 0
+
+
 def test_optional_community_membership_interactions_reporting_and_isolation():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()

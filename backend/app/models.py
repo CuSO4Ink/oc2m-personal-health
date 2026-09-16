@@ -632,6 +632,29 @@ class CommunityComment(db.Model):
         }
 
 
+class CommunityBlock(db.Model):
+    __tablename__ = "community_blocks"
+    __table_args__ = (db.UniqueConstraint("user_id", "target_id"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    target_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    label = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+
+class CommunityCommentReport(db.Model):
+    __tablename__ = "community_comment_reports"
+    __table_args__ = (db.UniqueConstraint("reporter_id", "comment_id"),)
+    id = db.Column(db.Integer, primary_key=True)
+    reporter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey("community_comments.id"), nullable=False)
+    reason = db.Column(db.String(60), nullable=False)
+    details = db.Column(db.String(500), nullable=False, default="")
+    status = db.Column(db.String(30), nullable=False, default="submitted")
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    comment = db.relationship("CommunityComment")
+
+
 class CommunityReport(db.Model):
     __tablename__ = "community_reports"
     __table_args__ = (db.UniqueConstraint("reporter_id", "post_id", name="uq_community_report"),)
