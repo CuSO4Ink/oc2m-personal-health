@@ -435,6 +435,77 @@ def test_care_booking_reminders_catalog_and_ownership():
     assert cancelled.get_json()["appointment"]["status"] == "cancelled"
 
 
+def test_sharing_field_projection_review_and_revocation():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Field Owner", "email": "fields@example.com", "password": "Patient123"})
+    record = client.post("/api/records", json={"title": "Private report", "record_type": "Other", "record_date": "2026-09-16", "content": "Sensitive detail"}).get_json()["record"]
+    with app.app_context():
+        recipient = ShareRecipient(full_name="Test Doctor", role="Doctor", organisation="Demo", email="test-doctor@example.com")
+        db.session.add(recipient); db.session.commit(); recipient_id = recipient.id
+    now = datetime.now(timezone.utc)
+    payload = {"recipient_id": recipient_id, "record_ids": [record["id"]], "starts_at": (now - timedelta(minutes=1)).isoformat(), "expires_at": (now + timedelta(days=1)).isoformat(), "shared_fields": ["title", "record_date"]}
+    grant = client.post("/api/sharing/grants", json=payload).get_json()["grant"]
+    endpoint = f"/api/sharing/grants/{grant['id']}/preview"
+    preview = client.post(endpoint, json={"action": "view"}).get_json()
+    assert preview["mode"] == "owner_preview"
+    assert set(preview["records"][0]) == {"title", "record_date"}
+    assert client.post(endpoint, json={"action": "download"}).status_code == 403
+    assert client.get("/api/sharing/access-events").get_json()["events"] == []
+    assert client.post("/api/sharing/grants", json={**payload, "shared_fields": ["attachments"]}).status_code == 400
+    with app.app_context():
+        event = AccessEvent(user_id=1, grant_id=grant["id"], record_id=record["id"], action="download", result="blocked", unusual=True)
+        db.session.add(event); db.session.commit(); event_id = event.id
+    reviewed = client.patch(f"/api/sharing/access-events/{event_id}/review").get_json()["event"]
+    assert reviewed["reviewed_at"]
+    assert client.patch(f"/api/sharing/access-events/{event_id}/review").get_json()["event"]["reviewed_at"] == reviewed["reviewed_at"]
+    client.patch(f"/api/sharing/grants/{grant['id']}/revoke")
+    assert client.post(endpoint, json={"action": "view"}).status_code == 403
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={"full_name": "Other Fields", "email": "other-fields@example.com", "password": "Patient123"})
+    assert client.post(endpoint, json={"action": "view"}).status_code == 404
+    assert client.patch(f"/api/sharing/access-events/{event_id}/review").status_code == 404
+
+
+def test_rescheduling_capacity_and_repeating_reminder_idempotence():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Repeat Owner", "email": "repeat@example.com", "password": "Patient123"})
+    with app.app_context():
+        facility = ServiceFacility(name="Repeat Centre", address="Demo")
+        service = MedicalService(facility=facility, name="Review", specialty="GP")
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        slots = [AppointmentSlot(service=service, starts_at=now + timedelta(days=day), ends_at=now + timedelta(days=day, minutes=20), capacity=1, booked_count=1 if day == 3 else 0) for day in [1, 2, 3]]
+        db.session.add_all(slots); db.session.commit(); ids = [slot.id for slot in slots]
+    appointment = client.post("/api/services/appointments", json={"slot_id": ids[0], "reason": "Routine review"}).get_json()["appointment"]
+    endpoint = f"/api/services/appointments/{appointment['id']}/reschedule"
+    assert client.patch(endpoint, json={"expected_slot_id": ids[0], "slot_id": ids[2]}).status_code == 409
+    assert client.get("/api/services/appointments").get_json()["appointments"][0]["slot"]["id"] == ids[0]
+    moved = client.patch(endpoint, json={"expected_slot_id": ids[0], "slot_id": ids[1]})
+    assert moved.status_code == 200
+    assert moved.get_json()["appointment"]["slot"]["id"] == ids[1]
+    with app.app_context():
+        assert db.session.get(AppointmentSlot, ids[0]).booked_count == 0
+        assert db.session.get(AppointmentSlot, ids[1]).booked_count == 1
+    assert client.patch(endpoint, json={"expected_slot_id": ids[0], "slot_id": ids[2]}).status_code == 409
+    reminder = client.post("/api/services/reminders", json={"title": "Daily reading", "repeat_days": 1, "next_due_at": (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()}).get_json()["reminder"]
+    complete = f"/api/services/reminders/{reminder['id']}/complete"
+    assert client.patch(complete).status_code == 200
+    assert client.patch(complete).status_code == 200
+    reminders = client.get("/api/services/reminders").get_json()["reminders"]
+    assert len(reminders) == 2
+    current = next(item for item in reminders if item["status"] != "completed")
+    assert current["repeat_days"] == 1
+    assert current["status"] == "upcoming"
+    client.patch(f"/api/services/reminders/{current['id']}/stop-repeat")
+    client.patch(f"/api/services/reminders/{current['id']}/complete")
+    assert len(client.get("/api/services/reminders").get_json()["reminders"]) == 2
+    client.post("/api/auth/logout")
+    client.post("/api/auth/register", json={"full_name": "Other Repeat", "email": "other-repeat@example.com", "password": "Patient123"})
+    assert client.patch(endpoint, json={"expected_slot_id": ids[1], "slot_id": ids[0]}).status_code == 404
+    assert client.patch(f"/api/services/reminders/{current['id']}/stop-repeat").status_code == 404
+
+
 def test_optional_community_membership_interactions_reporting_and_isolation():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()

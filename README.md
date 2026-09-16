@@ -63,11 +63,15 @@ The account contains sample data only. The password-reset page displays its gene
 - Explainable adult reference flags with AHA/NIDDK/ADA source links; no normal classification for unsupported contexts
 - Data-sufficiency notices and traceable rule-based trend summaries
 - Verified healthcare-recipient directory and fixed-record sharing permissions
+- Field selection and owner-only preview of the locally enforced active permission
 - Permission preview, view/download controls, expiry and immediate revocation
+- Access-event review state with honest demonstration-location provenance
 - Account-isolated access activity with action, result, time, location and review flags
 - Verified medical-service catalogue with live local appointment capacity
 - Appointment review, confirmation, duplicate/full-slot checks and cancellation
+- Same-service appointment rescheduling with atomic capacity reservation and changed-time notifications
 - Personal health reminders with due-state tracking and completion
+- Daily/weekly UTC recurrence after completion, completed occurrence history and stop-repeat control
 - Searchable elder-care information directory with source and update provenance
 - Care appointment and task summaries on the health overview
 - Optional Community profile with explicit on/off control
@@ -80,4 +84,4 @@ The account contains sample data only. The password-reset page displays its gene
 - Current-password-verified password changes that revoke other sessions
 - Active-session management and account security activity history
 
-Provider system integration, recipient identity-directory integration, correction requests, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.

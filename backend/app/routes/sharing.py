@@ -4,10 +4,11 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import AccessEvent, HealthRecord, ShareGrant, ShareGrantRecord, ShareRecipient, utc_now
+from ..models import AccessEvent, AccessReview, HealthRecord, ShareFieldSettings, ShareGrant, ShareGrantRecord, ShareRecipient, utc_now
 
 
 sharing_bp = Blueprint("sharing", __name__)
+SHARE_FIELDS = {"title", "record_type", "record_date", "source_name", "condition", "content"}
 
 
 def parse_datetime(value, label):
@@ -39,12 +40,19 @@ def list_grants():
 @login_required
 def create_grant():
     data = request.get_json(silent=True) or {}
-    recipient = db.session.get(ShareRecipient, data.get("recipient_id"))
+    recipient = db.session.get(ShareRecipient, data.get("recipient_id")) if type(data.get("recipient_id")) is int else None
     if not recipient or recipient.verification_status != "verified":
         return jsonify({"error": "invalid_recipient", "message": "Select a verified healthcare recipient."}), 400
     record_ids = data.get("record_ids") or []
     if not isinstance(record_ids, list) or not record_ids:
         return jsonify({"error": "records_required", "message": "Select at least one health record to share."}), 400
+    if any(type(item) is not int for item in record_ids):
+        return jsonify({"message": "Select valid record IDs."}), 400
+    fields = data.get("shared_fields", sorted(SHARE_FIELDS))
+    if not isinstance(fields, list) or not fields or any(not isinstance(item, str) or item not in SHARE_FIELDS for item in fields):
+        return jsonify({"message": "Select at least one supported field."}), 400
+    if not isinstance(data.get("allow_download", False), bool):
+        return jsonify({"message": "Select a valid download permission."}), 400
     unique_ids = list(dict.fromkeys(record_ids))
     records = HealthRecord.query.filter(HealthRecord.user_id == current_user.id, HealthRecord.id.in_(unique_ids)).all()
     if len(records) != len(unique_ids):
@@ -70,6 +78,7 @@ def create_grant():
     )
     db.session.add(grant)
     db.session.flush()
+    db.session.add(ShareFieldSettings(grant_id=grant.id, fields=list(dict.fromkeys(fields))))
     for record in records:
         db.session.add(ShareGrantRecord(grant_id=grant.id, record_id=record.id))
     db.session.commit()
@@ -109,3 +118,30 @@ def list_access_events():
         query = query.filter_by(result=result)
     events = query.order_by(AccessEvent.occurred_at.desc()).limit(100).all()
     return jsonify({"events": [event.to_dict() for event in events]})
+
+
+@sharing_bp.post("/grants/<int:grant_id>/preview")
+@login_required
+def preview_grant(grant_id):
+    grant = ShareGrant.query.filter_by(id=grant_id, user_id=current_user.id).first()
+    if not grant:
+        return jsonify({"message": "Sharing permission not found."}), 404
+    action = (request.get_json(silent=True) or {}).get("action", "view")
+    if action not in {"view", "download"}:
+        return jsonify({"message": "Select view or download."}), 400
+    if grant.status != "active" or (action == "download" and not grant.allow_download):
+        return jsonify({"message": "This action is blocked by the current permission.", "status": grant.status}), 403
+    fields = grant.to_dict()["shared_fields"]
+    return jsonify({"mode": "owner_preview", "records": [{field: link.record.to_dict()[field] for field in fields} for link in grant.record_links], "message": "Owner-only preview. No recipient request was made or logged. External recipient access is not connected."})
+
+
+@sharing_bp.patch("/access-events/<int:event_id>/review")
+@login_required
+def review_access(event_id):
+    event = AccessEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
+    if not event:
+        return jsonify({"message": "Access event not found."}), 404
+    if not event.review:
+        db.session.add(AccessReview(event_id=event.id))
+        db.session.commit()
+    return jsonify({"event": event.to_dict()})

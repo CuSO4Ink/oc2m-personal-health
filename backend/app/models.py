@@ -277,10 +277,25 @@ class ShareGrant(db.Model):
             "allow_download": self.allow_download,
             "allowed_actions": ["view", "download"] if self.allow_download else ["view"],
             "purpose": self.purpose,
+            "shared_fields": self.field_settings.fields if self.field_settings else ["title", "record_type", "record_date", "source_name", "condition", "content"],
             "created_at": self.created_at.isoformat() + "Z",
             "revoked_at": self.revoked_at.isoformat() + "Z" if self.revoked_at else None,
             "status": self.status,
         }
+
+
+class ShareFieldSettings(db.Model):
+    __tablename__ = "share_field_settings"
+    grant_id = db.Column(db.Integer, db.ForeignKey("share_grants.id"), primary_key=True)
+    fields = db.Column(db.JSON, nullable=False)
+    grant = db.relationship("ShareGrant", backref=db.backref("field_settings", uselist=False, cascade="all, delete-orphan"))
+
+
+class AccessReview(db.Model):
+    __tablename__ = "access_reviews"
+    event_id = db.Column(db.Integer, db.ForeignKey("access_events.id"), primary_key=True)
+    reviewed_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    event = db.relationship("AccessEvent", backref=db.backref("review", uselist=False, cascade="all, delete-orphan"))
 
 
 class AccessEvent(db.Model):
@@ -310,6 +325,8 @@ class AccessEvent(db.Model):
             "location": self.location,
             "occurred_at": self.occurred_at.isoformat() + "Z",
             "unusual": self.unusual,
+            "reviewed_at": self.review.reviewed_at.isoformat() + "Z" if self.review else None,
+            "location_source": "Historical directory data; geographic accuracy is not verified",
         }
 
 
@@ -416,6 +433,13 @@ class Appointment(db.Model):
         }
 
 
+class ReminderSchedule(db.Model):
+    __tablename__ = "reminder_schedules"
+    reminder_id = db.Column(db.Integer, db.ForeignKey("health_reminders.id"), primary_key=True)
+    interval_days = db.Column(db.Integer, nullable=False)
+    reminder = db.relationship("HealthReminder", backref=db.backref("recurrence", uselist=False, cascade="all, delete-orphan"))
+
+
 class HealthReminder(db.Model):
     __tablename__ = "health_reminders"
 
@@ -447,6 +471,7 @@ class HealthReminder(db.Model):
             "category": self.category,
             "next_due_at": self.next_due_at.isoformat() + "Z",
             "schedule_note": self.schedule_note,
+            "repeat_days": self.recurrence.interval_days if self.recurrence else 0,
             "source_name": self.source_name,
             "notes": self.notes,
             "completed_at": self.completed_at.isoformat() + "Z" if self.completed_at else None,

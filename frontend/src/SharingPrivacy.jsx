@@ -32,6 +32,8 @@ export default function SharingPrivacyPage() {
   const [shareStep, setShareStep] = React.useState(0)
   const [draft, setDraft] = React.useState(null)
   const [saving, setSaving] = React.useState(false)
+  const [preview, setPreview] = React.useState(null)
+  const [reviewFilter, setReviewFilter] = React.useState('all')
   const [selectedGrant, setSelectedGrant] = React.useState(null)
   const [actionFilter, setActionFilter] = React.useState('all')
   const [resultFilter, setResultFilter] = React.useState('all')
@@ -65,7 +67,7 @@ export default function SharingPrivacyPage() {
 
   function openShare() {
     setShareStep(0); setDraft(null); form.resetFields()
-    form.setFieldsValue({ starts_at: dayjs(), expires_at: dayjs().add(7, 'day'), record_ids: [], allow_download: false })
+    form.setFieldsValue({ starts_at: dayjs(), expires_at: dayjs().add(7, 'day'), record_ids: [], allow_download: false, shared_fields: ['title', 'record_type', 'record_date', 'source_name'] })
     setShareOpen(true)
   }
 
@@ -89,7 +91,7 @@ export default function SharingPrivacyPage() {
         starts_at: draft.starts_at.toISOString(),
         expires_at: draft.expires_at.toISOString(),
         allow_download: draft.allow_download,
-        purpose: draft.purpose,
+        purpose: draft.purpose, shared_fields: draft.shared_fields,
       })
       message.success('Sharing permission created.')
       setShareOpen(false); await load()
@@ -105,36 +107,49 @@ export default function SharingPrivacyPage() {
     } catch (requestError) { message.error(apiMessage(requestError)) }
   }
 
+  async function previewPermission(grant) {
+    try { setPreview((await api.post(`/sharing/grants/${grant.id}/preview`, {action: 'view'})).data) }
+    catch (error) {message.error(apiMessage(error))}
+  }
+  async function reviewEvent(id) {
+    try {await api.patch(`/sharing/access-events/${id}/review`); await load()}
+    catch (error) {message.error(apiMessage(error))}
+  }
+
   const activeCount = grants.filter((grant) => grant.status === 'active').length
-  const expiringCount = grants.filter((grant) => grant.status === 'active' && dayjs(grant.expires_at).diff(dayjs(), 'day') <= 7).length
+  const expiringCount = grants.filter((grant) => grant.status === 'active' && !dayjs(grant.expires_at).isAfter(dayjs().add(7, 'day'))).length
   const blockedCount = events.filter((event) => event.result === 'blocked').length
-  const filteredEvents = events.filter((event) => (actionFilter === 'all' || event.action === actionFilter) && (resultFilter === 'all' || event.result === resultFilter))
+  const filteredEvents = events.filter((event) => (actionFilter === 'all' || event.action === actionFilter) && (resultFilter === 'all' || event.result === resultFilter) && (reviewFilter === 'all' || (reviewFilter === 'pending' ? !event.reviewed_at : Boolean(event.reviewed_at))))
   const draftRecipient = recipients.find((recipient) => recipient.id === draft?.recipient_id)
   const draftRecords = records.filter((record) => draft?.record_ids?.includes(record.id))
-  const unusualEvent = events.find((event) => event.unusual)
+  const unusualEvent = events.find((event) => event.unusual && !event.reviewed_at)
   const unusualGrant = grants.find((grant) => grant.id === unusualEvent?.grant_id)
 
   const grantsPanel = loading ? <Card><Skeleton active paragraph={{ rows: 7 }} /></Card> : grants.length === 0 ? <Card><Empty description="No sharing permissions yet"><Button type="primary" onClick={openShare}>Share records</Button></Empty></Card> : <div className="grant-list">{grants.map((grant) => <Card key={grant.id} className="grant-card">
-    <div className="grant-main"><div className="recipient-avatar">{grant.recipient.full_name.split(' ').filter((part) => !part.endsWith('.')).map((part) => part[0]).slice(0, 2).join('')}</div><div><Space wrap><Title level={4}>{grant.recipient.full_name}</Title>{statusTag(grant.status)}<Tag icon={<SafetyCertificateOutlined />} color="blue">Verified</Tag></Space><Text>{grant.recipient.role} · {grant.recipient.organisation}</Text><div className="grant-meta"><span><LockOutlined /> {grant.records.length} selected {grant.records.length === 1 ? 'record' : 'records'}</span><span><CalendarOutlined /> Until {formatDate(grant.expires_at, true)}</span><span>{grant.allow_download ? <><DownloadOutlined /> View and download</> : <><EyeOutlined /> View only</>}</span></div></div></div>
+    <div className="grant-main"><div className="recipient-avatar">{grant.recipient.full_name.split(' ').filter((part) => !part.endsWith('.')).map((part) => part[0]).slice(0, 2).join('')}</div><div><Space wrap><Title level={4}>{grant.recipient.full_name}</Title>{statusTag(grant.status)}<Tag icon={<SafetyCertificateOutlined />} color="blue">Directory status</Tag></Space><Text>{grant.recipient.role} · {grant.recipient.organisation}</Text><div className="grant-meta"><span><LockOutlined /> {grant.records.length} selected {grant.records.length === 1 ? 'record' : 'records'}</span><span><CalendarOutlined /> Until {formatDate(grant.expires_at, true)}</span><span>{grant.allow_download ? <><DownloadOutlined /> View and download</> : <><EyeOutlined /> View only</>}</span></div></div></div>
     <Space><Button onClick={() => setSelectedGrant(grant)}>View details</Button>{['active', 'scheduled'].includes(grant.status) && <Popconfirm title="Revoke this sharing permission?" description="The recipient will be blocked from future access. Previously downloaded copies cannot be recalled." okText="Revoke access" okButtonProps={{ danger: true }} onConfirm={() => revoke(grant.id)}><Button danger icon={<StopOutlined />}>Revoke</Button></Popconfirm>}</Space>
   </Card>)}</div>
 
-  const activityPanel = <Card className="activity-card"><div className="activity-filters"><div><Title level={3}>Access activity</Title><Paragraph>See who accessed each record, what they did, where the request came from and whether it succeeded.</Paragraph></div><Space wrap><Select value={actionFilter} onChange={setActionFilter} options={[{ value: 'all', label: 'All actions' }, { value: 'view', label: 'Views' }, { value: 'download', label: 'Downloads' }]} /><Select value={resultFilter} onChange={setResultFilter} options={[{ value: 'all', label: 'All results' }, { value: 'allowed', label: 'Allowed' }, { value: 'blocked', label: 'Blocked' }]} /></Space></div>{unusualEvent && <Alert className="activity-alert" type="warning" showIcon message="An access attempt needs your review" description={`${unusualEvent.recipient.full_name} attempted to ${unusualEvent.action} ${unusualEvent.record.title}. The request was ${unusualEvent.result}.`} action={unusualGrant && <Button onClick={() => setSelectedGrant(unusualGrant)}>Review permission</Button>} />}{filteredEvents.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No access activity matches these filters" /> : <List dataSource={filteredEvents} renderItem={(event) => <List.Item><List.Item.Meta avatar={<div className={`event-icon ${event.result}`} >{event.action === 'download' ? <DownloadOutlined /> : <EyeOutlined />}</div>} title={<Space wrap><Text strong>{event.recipient.full_name}</Text><Tag>{event.action === 'download' ? 'Download' : 'View'}</Tag><Tag color={event.result === 'allowed' ? 'green' : 'red'}>{event.result}</Tag>{event.unusual && <Tag color="orange" icon={<WarningOutlined />}>Review activity</Tag>}</Space>} description={<div className="event-details"><span>{event.record.title}</span><span>{formatDate(event.occurred_at, true)}</span><span>{event.location}</span></div>} /></List.Item>} />}</Card>
+  const activityPanel = <Card className="activity-card"><div className="activity-filters"><div><Title level={3}>Access activity</Title><Paragraph>See who accessed each record, what they did, where the request came from and whether it succeeded.</Paragraph></div><Space wrap><Select value={reviewFilter} onChange={setReviewFilter} options={[{value: 'all', label: 'All review states'}, {value: 'pending', label: 'Unreviewed'}, {value: 'reviewed', label: 'Reviewed'}]} /><Select value={actionFilter} onChange={setActionFilter} options={[{ value: 'all', label: 'All actions' }, { value: 'view', label: 'Views' }, { value: 'download', label: 'Downloads' }]} /><Select value={resultFilter} onChange={setResultFilter} options={[{ value: 'all', label: 'All results' }, { value: 'allowed', label: 'Allowed' }, { value: 'blocked', label: 'Blocked' }]} /></Space></div>{unusualEvent && <Alert className="activity-alert" type="warning" showIcon message="An access attempt needs your review" description={`${unusualEvent.recipient.full_name} attempted to ${unusualEvent.action} ${unusualEvent.record.title}. The request was ${unusualEvent.result}.`} action={unusualGrant && <Button onClick={() => setSelectedGrant(unusualGrant)}>Review permission</Button>} />}{filteredEvents.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No access activity matches these filters" /> : <List pagination={{pageSize: 8}} dataSource={filteredEvents} renderItem={(event) => <List.Item actions={event.reviewed_at ? [<Tag key="reviewed" color="green">Reviewed</Tag>] : [<Button key="review" onClick={() => reviewEvent(event.id)}>Mark reviewed</Button>]}><List.Item.Meta avatar={<div className={`event-icon ${event.result}`} >{event.action === 'download' ? <DownloadOutlined /> : <EyeOutlined />}</div>} title={<Space wrap><Text strong>{event.recipient.full_name}</Text><Tag>{event.action === 'download' ? 'Download' : 'View'}</Tag><Tag color={event.result === 'allowed' ? 'green' : 'red'}>{event.result}</Tag>{event.unusual && <Tag color="orange" icon={<WarningOutlined />}>Review activity</Tag>}</Space>} description={<div className="event-details"><span>{event.record.title}</span><span>{formatDate(event.occurred_at, true)}</span><span>{event.location}</span><span>{event.location_source}</span></div>} /></List.Item>} />}</Card>
 
   return <div className="page-stack sharing-page">
     <div className="page-heading"><div><Title level={1}>Sharing & Privacy</Title><Paragraph>Choose exactly who can access selected health records, for how long, and review every access attempt.</Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={openShare}>Share Records</Button></div>
     <Alert type="info" showIcon message="You remain in control" description="Each permission uses a fixed list of records. Records added later are not shared automatically. Revoking access blocks future requests but cannot recall copies that were previously downloaded with your permission." />
+    <Alert type="info" showIcon message="Local permission management" description="Recipients and access activity currently use demonstration directory data. Real professional identity verification and external access enforcement are not connected. Access locations are historical labels with unverified accuracy. Owner previews do not create recipient access events." />
     {error && <Alert type="error" showIcon message="Sharing information could not be loaded" description={error} action={<Button onClick={load}>Try again</Button>} />}
     <div className="privacy-stats"><Card><Statistic title="Active permissions" value={activeCount} prefix={<TeamOutlined />} /></Card><Card><Statistic title="Expiring within 7 days" value={expiringCount} prefix={<CalendarOutlined />} /></Card><Card><Statistic title="Blocked access attempts" value={blockedCount} prefix={<AuditOutlined />} /></Card></div>
     <Tabs defaultActiveKey="permissions" items={[{ key: 'permissions', label: `Sharing permissions (${grants.length})`, children: grantsPanel }, { key: 'activity', label: `Access activity (${events.length})`, children: activityPanel }]} />
 
+    <Modal title="Owner-only permission preview" open={Boolean(preview)} onCancel={() => setPreview(null)} footer={<Button onClick={() => setPreview(null)}>Close</Button>}><Paragraph>{preview?.message}</Paragraph>{preview?.records.map((record, index) => <Card key={index} size="small"><Descriptions column={1} items={Object.entries(record).map(([key, value]) => ({key, label: key.replace('_', ' '), children: value || '—'}))} /></Card>)}</Modal>
     <Modal width={780} title="Share health records" open={shareOpen} onCancel={() => setShareOpen(false)} footer={null} destroyOnHidden>
       <Steps size="small" current={shareStep} items={[{ title: 'Set permission' }, { title: 'Review & confirm' }]} />
       {shareStep === 0 ? <Form className="share-form" form={form} layout="vertical">
-        <Form.Item label="Verified recipient" name="recipient_id" rules={[{ required: true, message: 'Select a healthcare recipient' }]}><Select placeholder="Select a doctor or health manager" optionRender={(option) => <div><b>{option.data.label}</b><div className="select-detail">{option.data.description}</div></div>} options={recipients.map((recipient) => ({ value: recipient.id, label: recipient.full_name, description: `${recipient.role} · ${recipient.organisation}` }))} /></Form.Item>
+        <Form.Item label="Directory recipient" name="recipient_id" rules={[{ required: true, message: 'Select a healthcare recipient' }]}><Select placeholder="Select a doctor or health manager" optionRender={(option) => <div><b>{option.data.label}</b><div className="select-detail">{option.data.description}</div></div>} options={recipients.map((recipient) => ({ value: recipient.id, label: recipient.full_name, description: `${recipient.role} · ${recipient.organisation}` }))} /></Form.Item>
         <Form.Item label="Purpose" name="purpose" rules={[{ required: true, message: 'Explain why you are sharing these records' }]}><Input maxLength={200} placeholder="e.g. Follow-up consultation" /></Form.Item>
         <Form.Item label="Records to share" name="record_ids" rules={[{ required: true, type: 'array', min: 1, message: 'Select at least one record' }]}><Checkbox.Group className="record-checkbox-group">{records.map((record) => <Checkbox key={record.id} value={record.id}><span><b>{record.title}</b><small>{record.record_type} · {formatDate(record.record_date)}</small></span></Checkbox>)}</Checkbox.Group></Form.Item>
         <div className="two-field-row"><Form.Item label="Access starts" name="starts_at" rules={[{ required: true }]}><DatePicker showTime className="full-width" /></Form.Item><Form.Item label="Access expires" name="expires_at" rules={[{ required: true }]}><DatePicker showTime className="full-width" /></Form.Item></div>
+        <Form.Item label="Fields to share" name="shared_fields" rules={[{required: true, type: 'array', min: 1, message: 'Select at least one field'}]}><Checkbox.Group options={['title', 'record_type', 'record_date', 'source_name', 'condition', 'content'].map((value) => ({value, label: value.replace('_', ' ')}))} /></Form.Item>
+        <Paragraph type="secondary">Attachments remain private. Record fields show their latest saved values; this permission is not a frozen copy.</Paragraph>
         <Form.Item name="allow_download" valuePropName="checked"><Checkbox>Allow the recipient to download copies</Checkbox></Form.Item>
         <div className="form-actions"><Button onClick={() => setShareOpen(false)}>Cancel</Button><Button type="primary" onClick={previewShare}>Review permission</Button></div>
       </Form> : <div className="share-preview">
@@ -143,6 +158,7 @@ export default function SharingPrivacyPage() {
           { key: 'recipient', label: 'Recipient', children: <span>{draftRecipient.full_name}<br /><Text type="secondary">{draftRecipient.role} · {draftRecipient.organisation}</Text></span> },
           { key: 'purpose', label: 'Purpose', children: draft.purpose },
           { key: 'records', label: 'Fixed record list', children: <List size="small" dataSource={draftRecords} renderItem={(record) => <List.Item>{record.title} <Tag>{record.record_type}</Tag></List.Item>} /> },
+          { key: 'fields', label: 'Shared fields', children: draft.shared_fields.join(', ') },
           { key: 'actions', label: 'Allowed actions', children: draft.allow_download ? 'View and download' : 'View only' },
           { key: 'period', label: 'Permission period', children: `${formatDate(draft.starts_at, true)} until ${formatDate(draft.expires_at, true)}` },
         ]} />
@@ -152,8 +168,10 @@ export default function SharingPrivacyPage() {
     </Modal>
 
     <Modal width={700} title="Sharing permission details" open={Boolean(selectedGrant)} onCancel={() => setSelectedGrant(null)} footer={selectedGrant && ['active', 'scheduled'].includes(selectedGrant.status) ? <Popconfirm title="Revoke this sharing permission?" description="This blocks all future access under this permission." okText="Revoke access" okButtonProps={{ danger: true }} onConfirm={() => revoke(selectedGrant.id)}><Button danger>Revoke access</Button></Popconfirm> : <Button onClick={() => setSelectedGrant(null)}>Close</Button>}>
-      {selectedGrant && <div className="grant-detail"><Space>{statusTag(selectedGrant.status)}<Tag icon={<SafetyCertificateOutlined />} color="blue">Verified recipient</Tag></Space><Title level={3}>{selectedGrant.recipient.full_name}</Title><Paragraph>{selectedGrant.recipient.role} · {selectedGrant.recipient.organisation}</Paragraph><Descriptions column={1} bordered size="small" items={[
+      {selectedGrant && <div className="grant-detail"><Space>{statusTag(selectedGrant.status)}<Tag icon={<SafetyCertificateOutlined />} color="blue">Directory recipient</Tag></Space><Title level={3}>{selectedGrant.recipient.full_name}</Title><Paragraph>{selectedGrant.recipient.role} · {selectedGrant.recipient.organisation}</Paragraph><Descriptions column={1} bordered size="small" items={[
         { key: 'purpose', label: 'Purpose', children: selectedGrant.purpose },
+        { key: 'fields', label: 'Shared fields', children: selectedGrant.shared_fields.join(', ') },
+        { key: 'preview', label: 'Owner preview', children: <Button onClick={() => previewPermission(selectedGrant)}>Preview permitted fields</Button> },
         { key: 'actions', label: 'Allowed actions', children: selectedGrant.allowed_actions.join(' and ') },
         { key: 'period', label: 'Permission period', children: `${formatDate(selectedGrant.starts_at, true)} until ${formatDate(selectedGrant.expires_at, true)}` },
         { key: 'records', label: 'Shared records', children: <List size="small" dataSource={selectedGrant.records} renderItem={(record) => <List.Item>{record.title} <Tag>{record.record_type}</Tag></List.Item>} /> },
