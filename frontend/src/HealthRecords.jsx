@@ -12,6 +12,7 @@ import { Alert, Button, Card, DatePicker, Descriptions, Empty, Form, Input, List
 import dayjs from 'dayjs'
 import { useNavigate, useParams } from 'react-router-dom'
 import api, { apiMessage } from './api'
+import RecordAttachments from './RecordAttachments'
 
 const { Title, Paragraph, Text } = Typography
 const { RangePicker } = DatePicker
@@ -95,14 +96,14 @@ export function RecordsPage() {
     </Card>
 
     {error && <Alert type="error" showIcon message="Records could not be loaded" description={error} action={<Button onClick={() => loadRecords()}>Try again</Button>} />}
-    {loading ? <Card><Skeleton active paragraph={{ rows: 6 }} /></Card> : <>
+    {loading ? <Card><Skeleton active paragraph={{ rows: 6 }} /></Card> : !error && <>
       <div className="results-heading"><Text strong>{records.length} {records.length === 1 ? 'record' : 'records'}</Text><Text type="secondary">Newest record date first</Text></div>
       {records.length === 0 ? <Card><Empty description={<><b>No matching records</b><br /><Text type="secondary">Change your filters or add a self-reported record.</Text></>}><Button type="primary" onClick={() => navigate('/records/new')}>Add Record</Button></Empty></Card> :
         <List className="records-list" dataSource={records} renderItem={(record) => <List.Item onClick={() => navigate(`/records/${record.id}`)} actions={[<Button key="view" type="link" onClick={(event) => { event.stopPropagation(); navigate(`/records/${record.id}`) }}>View details</Button>]}>
           <List.Item.Meta
             avatar={<div className="record-icon"><FileTextOutlined /></div>}
             title={<Space wrap><span>{record.title}</span><RecordTypeTag type={record.record_type} /><SourceTag record={record} /></Space>}
-            description={<div className="record-list-details"><span>{record.condition || 'No condition specified'}</span><span>Record date: {displayDate(record.record_date)}</span><span>Source: {record.source_name}</span><span>Version {record.version} · Updated {displayDate(record.updated_at, true)}</span></div>}
+            description={<div className="record-list-details"><span>{record.condition || 'No condition specified'}</span><span>Record date: {displayDate(record.record_date)}</span><span>Source: {record.source_name}</span><span>Version {record.version} · Updated {displayDate(record.updated_at, true)}</span><span>{record.attachments.length} attachments</span></div>}
           />
         </List.Item>}/>
       }
@@ -143,6 +144,7 @@ export function RecordFormPage({ editing = false }) {
   }
 
   if (loading) return <div className="page-stack"><Card><Skeleton active /></Card></div>
+  if (editing && !record) return <NavigateBack title="Record unavailable" description={error} onBack={() => navigate('/records')} />
   if (editing && record && !record.is_editable) return <NavigateBack title="This provider record is read-only" description="Provider-synced content is preserved exactly as received. A correction-request workflow will be added with hospital integration." onBack={() => navigate(`/records/${id}`)} />
 
   return <div className="page-stack form-page">
@@ -150,6 +152,7 @@ export function RecordFormPage({ editing = false }) {
     <div><Title level={1}>{editing ? 'Edit Health Record' : 'Add Health Record'}</Title><Paragraph>{editing ? 'Saving creates a new version so earlier information remains traceable.' : 'Add information you manage yourself. Provider imports will appear separately when connected.'}</Paragraph></div>
     {error && <Alert type="error" showIcon message={error} />}
     <Card>
+      <Paragraph type="secondary">After saving this record, you can upload supporting PDF reports or images on its detail page.</Paragraph>
       <Form form={form} layout="vertical" onFinish={submit} initialValues={{ record_type: 'Other', record_date: dayjs(), source_name: 'Self-reported' }}>
         <div className="form-grid">
           <Form.Item label="Record title" name="title" rules={[{ required: true, min: 2, message: 'Enter a record title' }]}><Input placeholder="e.g. Physiotherapy follow-up" /></Form.Item>
@@ -198,7 +201,8 @@ export function RecordDetailPage() {
         { key: 'version', label: 'Current version', children: `Version ${record.version}` },
       ]} />
     </Card>
-    <Card className="future-card"><div><Text strong>Attachments and visit folders</Text><Paragraph>Secure document upload, OCR extraction and grouping related records into one visit will be added in the next phase.</Paragraph></div><Tag color="gold">Planned</Tag></Card>
+    <RecordAttachments record={record} onChange={setRecord} />
+    <Card className="future-card"><div><Text strong>OCR and visit folders</Text><Paragraph>Automatic text extraction and grouping related records into one visit will be added in the next phase.</Paragraph></div><Tag color="gold">Planned</Tag></Card>
   </div>
 }
 

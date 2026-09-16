@@ -28,9 +28,14 @@ def create_app(test_config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         RESET_CODE_DELIVERY=os.getenv("RESET_CODE_DELIVERY", "demo"),
+        MAX_CONTENT_LENGTH=11 * 1024 * 1024,
     )
     if test_config:
         app.config.update(test_config)
+
+    @app.errorhandler(413)
+    def request_too_large(error):
+        return {"error": "file_too_large", "message": "Each attachment must be 10 MB or smaller."}, 413
 
     os.makedirs(app.instance_path, exist_ok=True)
     db.init_app(app)

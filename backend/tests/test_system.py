@@ -1,4 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
+from io import BytesIO
+import base64
 
 from app import create_app
 from app.extensions import db
@@ -11,6 +13,59 @@ def test_health_check():
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
+
+
+def test_record_attachment_validation_download_delete_and_isolation():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    client = app.test_client()
+    client.post("/api/auth/register", json={"full_name": "Document Owner", "email": "documents@example.com", "password": "Patient123"})
+    record = client.post("/api/records", json={"title": "Report", "record_type": "Lab Report", "record_date": "2026-09-16", "content": "Report details"}).get_json()["record"]
+    endpoint = f"/api/records/{record['id']}/attachments"
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=")
+    assert client.post(endpoint).status_code == 400
+    assert client.post(endpoint, data={"file": (BytesIO(b"fake image"), "report.png")}).status_code == 400
+    assert client.post(endpoint, data={"file": (BytesIO(png), "report.html")}).status_code == 400
+    assert client.post(endpoint, data={"file": (BytesIO(b"x" * (10 * 1024 * 1024 + 1)), "large.pdf")}).status_code == 413
+    uploaded = client.post(endpoint, data={"file": (BytesIO(png), "../report.png")})
+    assert uploaded.status_code == 201
+    attachment = uploaded.get_json()["attachment"]
+    assert attachment["filename"] == "report.png"
+    assert attachment["size"] == len(png)
+    content_url = f"{endpoint}/{attachment['id']}"
+    content = client.get(content_url)
+    assert content.data == png
+    assert content.content_type == "image/png"
+    assert content.headers["Cache-Control"] == "private, no-store"
+    assert "attachment;" in client.get(content_url + "?download=1").headers["Content-Disposition"]
+    assert len(client.get(f"/api/records/{record['id']}").get_json()["record"]["attachments"]) == 1
+    client.post("/api/auth/logout")
+    assert client.get(content_url).status_code == 401
+    client.post("/api/auth/register", json={"full_name": "Other Owner", "email": "documents-other@example.com", "password": "Patient123"})
+    assert client.get(content_url).status_code == 404
+    assert client.delete(content_url).status_code == 404
+    assert client.post(endpoint, data={"file": (BytesIO(png), "report.png")}).status_code == 404
+    client.post("/api/auth/logout")
+    client.post("/api/auth/login", json={"email": "documents@example.com", "password": "Patient123"})
+    with app.app_context():
+        saved = db.session.get(HealthRecord, record["id"])
+        saved.source_type = "hospital"
+        db.session.commit()
+    assert client.post(endpoint, data={"file": (BytesIO(png), "report.png")}).status_code == 403
+    assert client.delete(content_url).status_code == 403
+    with app.app_context():
+        db.session.get(HealthRecord, record["id"]).source_type = "self"
+        db.session.commit()
+    assert client.delete(content_url).get_json()["record"]["attachments"] == []
+    assert client.get(content_url).status_code == 404
+    pdf = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+    pdf_upload = client.post(endpoint, data={"file": (BytesIO(pdf), "report.pdf")})
+    assert pdf_upload.status_code == 201
+    pdf_url = f"{endpoint}/{pdf_upload.get_json()['attachment']['id']}"
+    assert client.get(pdf_url).content_type == "application/pdf"
+    assert client.get(pdf_url).data == pdf
+    for index in range(9):
+        assert client.post(endpoint, data={"file": (BytesIO(png), f"report-{index}.png")}).status_code == 201
+    assert client.post(endpoint, data={"file": (BytesIO(png), "extra.png")}).status_code == 400
 
 
 def test_overview_empty_state_record_updates_and_account_isolation():

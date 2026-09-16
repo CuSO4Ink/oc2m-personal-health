@@ -91,10 +91,28 @@ class HealthRecord(db.Model):
             "content": self.content,
             "version": self.version,
             "is_editable": self.is_editable,
+            "attachments": [attachment.to_dict() for attachment in self.attachments],
             "synced_at": self.synced_at.isoformat() + "Z" if self.synced_at else None,
             "created_at": self.created_at.isoformat() + "Z",
             "updated_at": self.updated_at.isoformat() + "Z",
         }
+
+
+class RecordAttachment(db.Model):
+    __tablename__ = "record_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("health_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = db.Column(db.String(200), nullable=False)
+    content_type = db.Column(db.String(40), nullable=False)
+    size = db.Column(db.Integer, nullable=False)
+    data = db.deferred(db.Column(db.LargeBinary, nullable=False))
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    record = db.relationship("HealthRecord", backref=db.backref("attachments", cascade="all, delete-orphan", order_by="RecordAttachment.created_at.desc()"))
+
+    def to_dict(self):
+        return {"id": self.id, "filename": self.filename, "content_type": self.content_type,
+                "size": self.size, "created_at": self.created_at.isoformat() + "Z"}
 
 
 class HealthRecordVersion(db.Model):

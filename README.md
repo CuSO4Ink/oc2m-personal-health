@@ -52,6 +52,8 @@ The account contains sample data only. The password-reset page displays its gene
 - Recently updated records, expiring permissions, historical unusual access and working module shortcuts
 - Health record search and filtering by keyword, type, source and date
 - Self-reported record creation, editing and version history
+- Persistent PDF/PNG/JPEG attachments with preview, download, confirmed deletion and account ownership checks
+- Attachment limits: 10 files per record, 10 MB per file; file extension and signature validation
 - Read-only provider-synced records with source and sync provenance
 - Ownership checks and optimistic version conflict protection in the API
 - Blood pressure, blood glucose and heart-rate trend charts with time filters
@@ -76,4 +78,4 @@ The account contains sample data only. The password-reset page displays its gene
 - Current-password-verified password changes that revoke other sessions
 - Active-session management and account security activity history
 
-Provider system integration, recipient identity-directory integration, correction requests, attachments, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.
+Provider system integration, recipient identity-directory integration, correction requests, OCR, visit folders, clinically approved personalised risk reports, cross-system access enforcement, payments, online consultations, appointment rescheduling, live elder-care booking, private community messages, the moderator workbench, SMS/face authentication and external email/SMS/push delivery are planned for a later phase.
