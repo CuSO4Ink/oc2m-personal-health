@@ -262,6 +262,7 @@ def test_health_measurements_trends_alerts_and_ownership():
         "email": "insights@example.com",
         "password": "Patient123",
     })
+    client.patch("/api/account/profile", json={"full_name": "Insights Owner", "date_of_birth": "1980-01-01"})
     measured_at = datetime.now(timezone.utc).isoformat()
 
     normal = client.post("/api/insights/metrics", json={
@@ -314,6 +315,7 @@ def test_insights_context_flags_daily_sufficiency_and_review_history():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
     client.post("/api/auth/register", json={"full_name": "Context Owner", "email": "context@example.com", "password": "Patient123"})
+    client.patch("/api/account/profile", json={"full_name": "Context Owner", "date_of_birth": "1980-01-01"})
     now = datetime.now(timezone.utc)
 
     def add(metric, value, context="", days_ago=0, secondary=None):
@@ -323,7 +325,7 @@ def test_insights_context_flags_daily_sufficiency_and_review_history():
     assert add("blood_pressure", 89, secondary=59)["measurement"]["status"] == "low"
     low = add("blood_glucose", 3.8, "random")
     assert low["measurement"]["status"] == "low"
-    assert low["alert"]["rule_version"] == "1.1"
+    assert low["alert"]["rule_version"] == "1.2"
     assert add("blood_glucose", 3.9, "fasting")["measurement"]["status"] == "in_range"
     assert add("blood_glucose", 5.6, "fasting", 1)["measurement"]["status"] == "watch"
     assert add("blood_glucose", 7, "fasting", 2)["measurement"]["status"] == "high"
@@ -341,7 +343,7 @@ def test_insights_context_flags_daily_sufficiency_and_review_history():
     assert all(item["context"] == "fasting" for item in trend["readings"])
     assert trend["reference"]["sources"]
     same_day = client.get("/api/insights/metrics?metric=heart_rate").get_json()
-    assert same_day["data_sufficiency"]["status"] == "limited"
+    assert same_day["data_sufficiency"]["status"] == "mixed_context"
     assert same_day["summary"]["unassessed_count"] == 1
     assert client.get("/api/insights/metrics?metric=heart_rate&context=fasting").status_code == 400
     alert_id = low["alert"]["id"]

@@ -1,0 +1,130 @@
+[
+  {
+    "external_id": "hospital-lab-1",
+    "title": "Health Check and Laboratory Report — 20 June 2026",
+    "record_type": "Lab Report",
+    "condition": "Blood pressure and glucose follow-up",
+    "record_date": "2026-06-20",
+    "filename": "check-up-2026-06-20.pdf",
+    "content": "Synthetic hospital report. Original results are in the PDF; review and confirm any readings before adding them to your health measurements.",
+    "display_zh": {
+      "title": "2026-06-20 体检与检验报告",
+      "condition": "血压与血糖复查",
+      "content": "模拟医院体检报告。原始测量结果保存在 PDF 中；确认后可纳入个人指标。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-lab-2",
+    "title": "Health Check and Laboratory Report — 20 July 2026",
+    "record_type": "Lab Report",
+    "condition": "Blood pressure and glucose follow-up",
+    "record_date": "2026-07-20",
+    "filename": "check-up-2026-07-20.pdf",
+    "content": "Synthetic hospital report. Original results are in the PDF; review and confirm any readings before adding them to your health measurements.",
+    "display_zh": {
+      "title": "2026-07-20 体检与检验报告",
+      "condition": "血压与血糖复查",
+      "content": "模拟医院体检报告。原始测量结果保存在 PDF 中；确认后可纳入个人指标。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-lab-3",
+    "title": "Health Check and Laboratory Report — 20 September 2026",
+    "record_type": "Lab Report",
+    "condition": "Blood pressure and glucose follow-up",
+    "record_date": "2026-09-20",
+    "filename": "check-up-2026-09-20.pdf",
+    "content": "Synthetic hospital report. Original results are in the PDF; review and confirm any readings before adding them to your health measurements.",
+    "display_zh": {
+      "title": "2026-09-20 体检与检验报告",
+      "condition": "血压与血糖复查",
+      "content": "模拟医院体检报告。原始测量结果保存在 PDF 中；确认后可纳入个人指标。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-visit",
+    "title": "Outpatient Visit Summary — 20 September 2026",
+    "record_type": "Visit Summary",
+    "condition": "Hypertension follow-up",
+    "record_date": "2026-09-20",
+    "filename": "visit-2026-09-20.pdf",
+    "content": "Synthetic hospital document. Refer to the original PDF for details; personal classifications are stored separately.",
+    "display_zh": {
+      "title": "2026-09-20 门诊病历",
+      "condition": "高血压随访",
+      "content": "模拟医院原始资料。详情请查看 PDF；个人整理信息与原件分别保存。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-medication",
+    "title": "Medication Record — 20 September 2026",
+    "record_type": "Medication",
+    "condition": "Medication review",
+    "record_date": "2026-09-20",
+    "filename": "medication-2026-09-20.pdf",
+    "content": "Synthetic hospital document. Refer to the original PDF for details; personal classifications are stored separately.",
+    "display_zh": {
+      "title": "2026-09-20 用药记录",
+      "condition": "用药核对",
+      "content": "模拟医院原始资料。详情请查看 PDF；个人整理信息与原件分别保存。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-allergy",
+    "title": "Allergy Record — 20 September 2026",
+    "record_type": "Allergy",
+    "condition": "Penicillin allergy",
+    "record_date": "2026-09-20",
+    "filename": "allergy-2026-09-20.pdf",
+    "content": "Synthetic hospital document. Refer to the original PDF for details; personal classifications are stored separately.",
+    "display_zh": {
+      "title": "2026-09-20 过敏记录",
+      "condition": "青霉素过敏",
+      "content": "模拟医院原始资料。详情请查看 PDF；个人整理信息与原件分别保存。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-imaging",
+    "title": "Thyroid Ultrasound Report — 20 September 2026",
+    "record_type": "Imaging",
+    "condition": "Thyroid examination",
+    "record_date": "2026-09-20",
+    "filename": "imaging-2026-09-20.pdf",
+    "content": "Synthetic hospital document. Refer to the original PDF for details; personal classifications are stored separately.",
+    "display_zh": {
+      "title": "2026-09-20 超声检查报告",
+      "condition": "甲状腺检查",
+      "content": "模拟医院原始资料。详情请查看 PDF；个人整理信息与原件分别保存。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  },
+  {
+    "external_id": "hospital-care",
+    "title": "Scanned Rehabilitation and Nursing Record — 20 September 2026",
+    "record_type": "Other",
+    "condition": "Achilles tendon rehabilitation",
+    "record_date": "2026-09-20",
+    "filename": "scanned-care-2026-09-20.pdf",
+    "content": "Synthetic scanned nursing record. Full-text search depends on the results of local OCR.",
+    "display_zh": {
+      "title": "2026-09-20 康复护理扫描记录",
+      "condition": "跟腱康复",
+      "content": "模拟医院扫描护理记录。全文搜索依赖本地 OCR 识别结果。",
+      "source_name": "枫林综合医院（模拟）"
+    },
+    "source_name": "Maple Grove General Hospital (simulation)"
+  }
+]

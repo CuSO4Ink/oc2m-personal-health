@@ -1,0 +1,18 @@
+{
+  "Status: {status}": "状态：{status}",
+  "Entry {number}: {name}": "第 {number} 项：{name}",
+  "Name not entered": "未填写名称",
+  "Sensitive: {value}": "敏感信息：{value}",
+  "Yes": "是",
+  "No": "否",
+  "The latest reading needs context-specific interpretation; no normal-range classification is assigned.": "最近读数需结合个人情境解释，未对其作正常范围判断。",
+  "The latest {metric} reading is within the configured reference threshold.": "最近的{metric}读数在配置的参考阈值内。",
+  "The latest reading is marked for review.": "最近读数已标记为需要核对。",
+  "No reading in this period crossed a configured threshold.": "此时间范围内没有读数超过配置的参考阈值。",
+  "Readings crossing a configured threshold: {count}. Select a chart point to review its time and source.": "超过配置参考阈值的读数：{count} 条。选择图中测量点可核对时间和来源。",
+  " · Diastolic change: {value} mmHg": " · 舒张压变化：{value} mmHg",
+  "How reference flags work · {version}": "参考标记说明 · {version}",
+  "Readings in this view: {contexts}. Use the context filter before comparing averages. Reference lines are shown only for a selected fasting or resting context.": "当前读数的测量场景：{contexts}。比较均值前请按场景筛选；选择空腹或静息场景后才显示对应参考线。",
+  "本地模拟接收方 {name} 的访问因 {reason} 被阻止。可在访问记录中核对。": "Access by simulated recipient {name} was blocked ({reason}). Review the access log for details.",
+  "共享与访问（本地模拟）": "Sharing & access (local simulation)"
+}

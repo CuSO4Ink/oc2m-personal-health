@@ -462,6 +462,8 @@ class HealthReminder(db.Model):
 
     @property
     def status(self):
+        if self.cancellation:
+            return "cancelled"
         if self.completed_at:
             return "completed"
         if self.next_due_at < utc_now():
@@ -479,6 +481,7 @@ class HealthReminder(db.Model):
             "source_name": self.source_name,
             "notes": self.notes,
             "completed_at": self.completed_at.isoformat() + "Z" if self.completed_at else None,
+            "cancelled_at": self.cancellation.cancelled_at.isoformat() + "Z" if self.cancellation else None,
             "status": self.status,
         }
 
@@ -540,7 +543,7 @@ class CommunityCircle(db.Model):
     active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
-    def to_dict(self, user_id=None):
+    def to_dict(self, user_id=None, visible_member_count=0):
         memberships = [membership for membership in self.memberships if membership.left_at is None]
         return {
             "id": self.id,
@@ -548,7 +551,8 @@ class CommunityCircle(db.Model):
             "topic": self.topic,
             "description": self.description,
             "guidance": self.guidance,
-            "member_count": len(memberships),
+            "member_count": visible_member_count,
+            "member_count_scope": "visible",
             "joined": any(membership.user_id == user_id for membership in memberships) if user_id else False,
         }
 

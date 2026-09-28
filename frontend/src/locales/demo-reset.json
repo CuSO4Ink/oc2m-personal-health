@@ -1,0 +1,14 @@
+{
+  "Start a new demonstration": "重新开始演示",
+  "Keep your health records together.": "把健康资料放在一起。",
+  "Other demo accounts ({count})": "其他演示账号（{count} 个）",
+  "Clear your practice data and repeat the hospital sync, report review, measurements and sharing workflow.": "清除本账号的练习数据，重新演示医院同步、报告核对、指标和共享流程。",
+  "Your sign-in account, preferences and the original community examples are kept. The eight hospital sample PDFs stay available for everyone.": "保留登录账号、偏好和原始社区示例。8 份医院 PDF 样本仍供所有账号共用。",
+  "Reset my demo data": "重置我的演示数据",
+  "Reset this account’s demo data?": "重置当前账号的演示数据？",
+  "This clears your health information, imported and uploaded reports, measurements, AI advice, grants, appointments, reminders, activity history and notifications.": "将清除你的个人健康信息、同步及上传报告、指标、AI 建议、授权、预约、提醒、操作历史和通知。",
+  "Practice posts, comments and friend requests are removed. Friendships and their entire chats are cleared for both participants; original community examples remain.": "将移除练习发言、评论和好友申请。好友关系及双方的整段私聊会被清除；原始社区示例内容保留。",
+  "Other accounts’ health records are not affected. Your name, sign-in details and preferences are kept; your phone number and date of birth are cleared.": "不会影响其他账号的健康资料。保留姓名、登录信息和偏好，清空联系电话和出生日期。",
+  "This cannot be undone from the website.": "此操作无法在网站内撤销。",
+  "Your demo data has been reset. You can sync the eight hospital reports again.": "演示数据已重置，可以重新同步 8 份医院报告。"
+}

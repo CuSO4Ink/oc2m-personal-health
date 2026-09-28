@@ -1,6 +1,7 @@
 from app import create_app
 from app.extensions import db
 from datetime import date, datetime, timedelta
+import sys
 
 from app.models import AccessEvent, AccountProfile, Appointment, AppointmentSlot, CommunityCircle, CommunityComment, CommunityLike, CommunityMembership, CommunityPost, CommunityProfile, ElderCareListing, HealthAlert, HealthMeasurement, HealthRecord, HealthRecordVersion, HealthReminder, MedicalService, ServiceFacility, ShareGrant, ShareGrantRecord, ShareRecipient, User, utc_now
 
@@ -15,7 +16,9 @@ with app.app_context():
     if not user:
         user = User(email=DEMO_EMAIL, full_name="Alex Morgan", role="patient")
         db.session.add(user)
-    user.set_password(DEMO_PASSWORD)
+        user.set_password(DEMO_PASSWORD)
+    elif "--reset-demo-password" in sys.argv:
+        user.set_password(DEMO_PASSWORD)
     db.session.flush()
     account_profile = db.session.get(AccountProfile, user.id)
     if not account_profile:
@@ -66,6 +69,10 @@ with app.app_context():
             ),
         ]
         for record in demo_records:
+            offset = utc_now().date() - date(2026, 9, 15)
+            record.record_date += offset
+            if record.synced_at:
+                record.synced_at += offset
             db.session.add(record)
             db.session.flush()
             db.session.add(HealthRecordVersion(
@@ -105,6 +112,7 @@ with app.app_context():
         ]
         abnormal_bp = None
         for metric_type, value, secondary_value, context, measured_at, source_name in measurement_rows:
+            measured_at += utc_now().date() - date(2026, 9, 15)
             unit = {"blood_pressure": "mmHg", "blood_glucose": "mmol/L", "heart_rate": "bpm"}[metric_type]
             measurement = HealthMeasurement(
                 user_id=user.id,
@@ -148,19 +156,19 @@ with app.app_context():
         active_grant = ShareGrant(
             user_id=user.id,
             recipient_id=recipients[0].id,
-            starts_at=datetime(2026, 9, 10, 9, 0),
-            expires_at=datetime(2026, 9, 20, 23, 59),
+            starts_at=utc_now() - timedelta(days=5),
+            expires_at=utc_now() + timedelta(days=5),
             allow_download=False,
             purpose="Follow-up consultation",
         )
         revoked_grant = ShareGrant(
             user_id=user.id,
             recipient_id=recipients[1].id,
-            starts_at=datetime(2026, 8, 1, 9, 0),
-            expires_at=datetime(2026, 10, 1, 23, 59),
+            starts_at=utc_now() - timedelta(days=45),
+            expires_at=utc_now() + timedelta(days=15),
             allow_download=True,
             purpose="Cardiology review",
-            revoked_at=datetime(2026, 8, 18, 11, 30),
+            revoked_at=utc_now() - timedelta(days=28),
         )
         db.session.add_all([active_grant, revoked_grant])
         db.session.flush()
@@ -201,16 +209,17 @@ with app.app_context():
             db.session.add(service)
         services.append(service)
     db.session.flush()
-    if not AppointmentSlot.query.first():
-        for service_index, service in enumerate(services):
+    for service_index, service in enumerate(services):
+        if not AppointmentSlot.query.filter(AppointmentSlot.service_id == service.id, AppointmentSlot.starts_at > demo_now).first():
             for day_offset, hour in [(1 + service_index, 9), (2 + service_index, 11), (4 + service_index, 14)]:
                 start = (demo_now + timedelta(days=day_offset)).replace(hour=hour, minute=0)
                 db.session.add(AppointmentSlot(service_id=service.id, starts_at=start, ends_at=start + timedelta(minutes=service.duration_minutes), capacity=2, booked_count=0))
         db.session.flush()
     if not Appointment.query.filter_by(user_id=user.id).first():
         demo_slot = AppointmentSlot.query.join(AppointmentSlot.service).filter(MedicalService.name == "GP Follow-up", AppointmentSlot.starts_at > demo_now).order_by(AppointmentSlot.starts_at.asc()).first()
-        demo_slot.booked_count += 1
-        db.session.add(Appointment(user_id=user.id, slot_id=demo_slot.id, reason="Review recent home blood pressure readings", status="confirmed"))
+        if demo_slot and demo_slot.available_places > 0:
+            demo_slot.booked_count += 1
+            db.session.add(Appointment(user_id=user.id, slot_id=demo_slot.id, reason="Review recent home blood pressure readings", status="confirmed"))
     if not HealthReminder.query.filter_by(user_id=user.id).first():
         db.session.add_all([
             HealthReminder(user_id=user.id, title="Record morning blood pressure", category="measurement", next_due_at=demo_now + timedelta(hours=10), schedule_note="Twice each week", source_name="Personal reminder", notes="Rest for five minutes before measuring."),
@@ -242,16 +251,10 @@ with app.app_context():
     if not profile:
         profile = CommunityProfile(user_id=user.id, enabled=True, joined_at=demo_now, updated_at=demo_now)
         db.session.add(profile)
-    else:
-        profile.enabled = True
-        profile.joined_at = profile.joined_at or demo_now
-        profile.updated_at = demo_now
     for circle in circles[:2]:
         membership = CommunityMembership.query.filter_by(user_id=user.id, circle_id=circle.id).first()
         if not membership:
             db.session.add(CommunityMembership(user_id=user.id, circle_id=circle.id, joined_at=demo_now))
-        elif membership.left_at:
-            membership.left_at = None
     peer_rows = [
         ("community.peer.one@example.test", "Jamie Reed"),
         ("community.peer.two@example.test", "Morgan Hill"),

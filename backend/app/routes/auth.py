@@ -192,6 +192,8 @@ def me():
 
 @auth_bp.post("/password-reset/request")
 def request_password_reset():
+    if current_app.config["RESET_CODE_DELIVERY"] != "demo":
+        return jsonify({"message": "Account recovery delivery is not connected. No code was sent."}), 503
     email = normalise_email(body().get("email"))
     limited = throttle("reset-request", email, limit=3, minutes=10, record=True)
     if limited:
@@ -214,6 +216,8 @@ def request_password_reset():
 
 @auth_bp.post("/password-reset/confirm")
 def confirm_password_reset():
+    if current_app.config["RESET_CODE_DELIVERY"] != "demo":
+        return jsonify({"message": "Account recovery delivery is not connected."}), 503
     data = body()
     email = normalise_email(data.get("email"))
     limited = throttle("reset-confirm", email, record=True)

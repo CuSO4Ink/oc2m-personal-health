@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import AccountProfile, AccountSession, EmailChangeToken, SecurityEvent, User, utc_now
+from ..models import AccountProfile, AccountSession, CommunityProfile, EmailChangeToken, SecurityEvent, User, utc_now
 from .auth import ensure_account_session, normalise_email, record_security_event, throttle, validate_password
 
 
@@ -34,10 +34,11 @@ def account_payload():
     return {
         "user": current_user.to_dict(),
         "profile": profile.to_dict(),
+        "community_enabled": bool((community := db.session.get(CommunityProfile, current_user.id)) and community.enabled),
         "profile_completeness": int(completed / 4 * 100),
-        "protection": {"login_limit": "5 failed attempts per email and IP in 15 minutes", "recovery_mode": "Development code preview; email delivery is not connected", "phone_verified": False},
+        "protection": {"login_limit": "5 failed attempts per email and IP in 15 minutes", "recovery_mode": "Development code preview; email delivery is not connected" if current_app.config["RESET_CODE_DELIVERY"] == "demo" else "Account recovery and email change are unavailable until a delivery provider is connected", "phone_verified": False},
         "sign_in_methods": [
-            {"key": "password", "name": "Password", "status": "active", "description": "Available for sign-in and account recovery."},
+            {"key": "password", "name": "Password", "status": "active", "description": "Password sign-in is available. Recovery depends on the configured delivery service."},
             {"key": "sms", "name": "SMS verification", "status": "planned", "description": "Requires a verified phone number and message provider."},
             {"key": "face", "name": "Face verification", "status": "planned", "description": "Requires identity, consent and fallback requirements to be confirmed."},
         ],
@@ -208,5 +209,12 @@ def revoke_other_sessions():
 @account_bp.get("/security-events")
 @login_required
 def list_security_events():
-    events = SecurityEvent.query.filter_by(user_id=current_user.id).order_by(SecurityEvent.created_at.desc()).limit(100).all()
-    return jsonify({"events": [event.to_dict() for event in events]})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        page_size = min(100, max(1, int(request.args.get("page_size", 20))))
+    except (ValueError, TypeError):
+        return jsonify({"message": "Use valid page and page size numbers."}), 400
+    query = SecurityEvent.query.filter_by(user_id=current_user.id)
+    total = query.count()
+    events = query.order_by(SecurityEvent.created_at.desc(), SecurityEvent.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return jsonify({"events": [event.to_dict() for event in events], "total": total, "page": page, "page_size": page_size})

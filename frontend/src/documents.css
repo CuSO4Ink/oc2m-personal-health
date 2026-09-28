@@ -1,0 +1,11 @@
+.hospital-sync .sync-batch {margin-top:20px;border-top:1px solid #e8edf2;padding-top:14px}
+.hospital-sync summary,.document-review summary {cursor:pointer;font-weight:600}
+.sync-document .ant-select {min-width:140px;margin-top:8px}
+.sync-progress,.sync-summary {margin:16px 0 0;color:#435e7a}
+.document-search-hit {display:block;margin-top:8px;padding:10px 12px;background:#f4f7fa;border-left:3px solid #8cb4d7;border-radius:6px;max-width:780px}
+.document-search-hit .ant-typography {display:block;margin-bottom:3px}
+.document-index-state {margin-top:7px}
+.document-review {padding:14px 18px;border:1px solid #dbe7f0;border-radius:12px;background:#f6faff}
+.document-review .ant-list-item {padding:10px 0}
+.document-preview-tools {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+@media(max-width:600px){.sync-document {display:block!important}.sync-document .ant-list-item-action{margin:12px 0 0!important}.hospital-sync .ant-card-head-title{white-space:normal}.document-review{padding:12px}.document-search-hit{word-break:break-word}.records-list .ant-list-item{display:block!important}.records-list .ant-list-item-action{margin:12px 0 0!important;text-align:right}.records-list .ant-list-item-meta-content{min-width:0}.records-list .document-search-hit{width:100%;box-sizing:border-box}}

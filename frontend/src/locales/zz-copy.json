@@ -1,0 +1,8 @@
+{
+  "Blood pressure": "血压",
+  "Blood glucose": "血糖",
+  "Heart rate": "心率",
+  "Change sign-in email": "修改登录邮箱",
+  "Reports with information awaiting your confirmation: {count}": "有待核对内容的报告：{count} 份",
+  "Advice updates when you open this page after changing your information or on a new day (UTC). The same information reuses its saved result during that day.": "资料变化后或新的一天（UTC）打开本页时，建议会自动更新。同一天、同一份资料会复用已保存的结果。"
+}

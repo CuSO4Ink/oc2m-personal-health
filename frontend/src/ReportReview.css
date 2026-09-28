@@ -1,0 +1,24 @@
+.report-review-modal .ant-modal-body { max-height: 75vh; overflow-y: auto; }
+.report-review-modal .ant-alert { margin: 12px 0; }
+.review-source, .review-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.review-source { padding-bottom: 10px; border-bottom: 1px solid #e9eded; }
+.review-source .ant-typography { margin-bottom: 4px; }
+.review-summary, .review-batch { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.review-start { padding: 16px 0; }
+.review-conversion { display: block; color: #64746f; margin-top: 5px; }
+.review-fact-fields { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 10px; }
+.review-fact-fields label { font-size: 12px; color: #5a6a64; }
+.review-fact-fields label .ant-input { margin-top: 4px; color: #243a31; }
+.review-evidence { padding: 12px 18px; background: #f6f8f7; }
+.review-evidence .ant-typography { margin-bottom: 6px; }
+.review-acknowledge { margin: 20px 0 8px; }
+.review-text { margin-top: 18px; }
+.review-text .ant-btn { margin-top: 12px; }
+.review-text pre { white-space: pre-wrap; word-break: break-word; }
+.report-review-modal .ant-table-cell .ant-select { min-width: 110px; }
+.report-review-modal .ant-input-number { width: 75px; }
+@media (max-width: 640px) {
+  .review-source, .review-footer { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .review-footer > .ant-space { width: 100%; justify-content: flex-end; }
+  .review-fact-fields { grid-template-columns: 1fr; }
+}

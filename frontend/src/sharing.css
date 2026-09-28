@@ -1,0 +1,20 @@
+.share-form { margin-top: 20px; }
+.share-filter-row { margin: 14px 0; }
+.share-record-options, .share-reading-options, .share-preview-content { display: flex; flex-direction: column; gap: 12px; }
+.share-record-meta { display: block; color: #667085; font-size: 12px; margin-top: 4px; }
+.share-attachment-options { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0 24px; }
+.share-profile-option { margin-bottom: 10px; }
+.share-reading-options { max-height: 340px; overflow: auto; padding: 16px 2px; }
+.share-pre-wrap, .share-audit-details { white-space: pre-wrap; overflow-wrap: anywhere; }
+.share-audit-details { max-height: 280px; overflow: auto; }
+.share-preview-content { margin-top: 18px; }
+.share-preview-content section > .ant-card { margin-bottom: 10px; }
+.sharing-page .ant-list-item-meta { min-width: 0; }
+.sharing-page .ant-list-item-meta-description { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .sharing-page .ant-list-item { flex-wrap: wrap; gap: 10px; }
+  .sharing-page .ant-list-item-action { margin-inline-start: 0; }
+  .share-attachment-options { margin-inline-start: 12px; }
+  .share-preview-content .ant-list-item { flex-wrap: wrap; }
+  .share-preview-content .ant-list-item-action { margin-inline-start: 0; }
+}

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, session
@@ -16,12 +17,20 @@ from .routes.records import records_bp
 from .routes.sharing import sharing_bp
 from .routes.services import services_bp
 from .routes.system import system_bp
+from .routes.demo import demo_bp
+from .routes.extraction import extraction_bp
+from .routes.advice import advice_bp
+from .schema import initialize_schema
 
 
 def create_app(test_config=None):
     load_dotenv()
+    if not (test_config and test_config.get('TESTING')):
+        load_dotenv(Path(__file__).resolve().parents[1] / '.env.deepseek', override=False)
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
+        APP_ENV=os.getenv("APP_ENV", "development"),
+        DEMO_FEATURES_ENABLED=os.getenv("DEMO_FEATURES_ENABLED", "true" if os.getenv("APP_ENV", "development") != "production" else "false").lower() == "true",
         SECRET_KEY=os.getenv("FLASK_SECRET_KEY", "development-only-secret"),
         SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL", "sqlite:///personal_health.db"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
@@ -29,9 +38,17 @@ def create_app(test_config=None):
         SESSION_COOKIE_SAMESITE="Lax",
         RESET_CODE_DELIVERY=os.getenv("RESET_CODE_DELIVERY", "demo"),
         MAX_CONTENT_LENGTH=11 * 1024 * 1024,
+        DEEPSEEK_API_KEY=os.getenv('DEEPSEEK_API_KEY', ''),
+        DEEPSEEK_MODEL=os.getenv('DEEPSEEK_MODEL', 'deepseek-flash'),
+        DEEPSEEK_TIMEOUT=os.getenv('DEEPSEEK_TIMEOUT', '45'),
     )
     if test_config:
         app.config.update(test_config)
+    app.config['DEEPSEEK_TIMEOUT'] = max(5, min(90, int(app.config['DEEPSEEK_TIMEOUT'])))
+    if app.config["APP_ENV"] == "production":
+        if app.config["SECRET_KEY"] in {None, "", "development-only-secret", "replace-with-a-random-development-secret"} or app.config["RESET_CODE_DELIVERY"] == "demo" or app.config["DEMO_FEATURES_ENABLED"]:
+            raise ValueError("Production requires a private secret, RESET_CODE_DELIVERY=disabled, and DEMO_FEATURES_ENABLED=false. External delivery is not connected.")
+        app.config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True)
 
     @app.errorhandler(413)
     def request_too_large(error):
@@ -42,6 +59,9 @@ def create_app(test_config=None):
     login_manager.init_app(app)
     login_manager.login_view = None
     CORS(app, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}}, supports_credentials=True)
+    app.register_blueprint(demo_bp, url_prefix="/api/demo")
+    app.register_blueprint(extraction_bp, url_prefix="/api/extractions")
+    app.register_blueprint(advice_bp, url_prefix="/api/advice")
     app.register_blueprint(account_bp, url_prefix="/api/account")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(community_bp, url_prefix="/api/community")
@@ -54,7 +74,7 @@ def create_app(test_config=None):
     app.register_blueprint(system_bp, url_prefix="/api")
 
     with app.app_context():
-        db.create_all()
+        initialize_schema()
 
     return app
 
